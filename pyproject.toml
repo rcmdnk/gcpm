@@ -11,12 +11,13 @@ keywords = []
 
 [tool.poetry.dependencies]
 python = "^2.7 || ^3.5"
+fire = "^0.1.3"
 
 [tool.poetry.dev-dependencies]
+
+[tool.poetry.scripts]
+gcpm = "gcpm.gcpm:main"
 
 [build-system]
 requires = ["poetry>=0.12"]
 build-backend = "poetry.masonry.api"
-
-[tool.poetry.scripts]
-gcpm = "gcpm.gcpm:main"
