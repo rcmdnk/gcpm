@@ -1,3 +1,10 @@
+# -*- coding: utf-8 -*-
+
+"""
+    Main module to launch gcpm cli.
+"""
+
+
 def main():
     from .cli import cli
     cli()
