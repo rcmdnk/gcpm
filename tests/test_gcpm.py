@@ -35,3 +35,15 @@ def test_storage():
     buckets = storage.buckets().list(project=g.data["project"]).execute()
     print(buckets)
     assert "items" in buckets
+
+
+def test_create_bucket():
+    g = core.Gcpm()
+    g.create_bucket("my_gcpm_test_bucket")
+    assert True
+
+
+def test_delete_bucket():
+    g = core.Gcpm()
+    g.delete_bucket("my_gcpm_test_bucket")
+    assert True

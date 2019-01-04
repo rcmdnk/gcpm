@@ -23,6 +23,8 @@ class Gcpm(object):
             "service_account_file": "",
             "project": "",
             "zone": "",
+            "storageClass": "REGIONAL",
+            "location": "",
         }
         self.read_config()
 
@@ -35,6 +37,12 @@ class Gcpm(object):
             data = yaml.load(stream)
         for k, v in data.items():
             self.data[k] = v
+        if self.data["location"] == "":
+            if self.data["storageClass"] == "MULTI_REGIONAL":
+                self.data["location"] = self.data["zone"].split("-")[0]
+            else:
+                self.data["location"] = "-".join(
+                    self.data["zone"].split("-")[0:2])
 
     def show_config(self):
         print(self.data)
@@ -55,3 +63,36 @@ class Gcpm(object):
 
     def get_storage(self):
         return self.service("storage", "v1")
+
+    def bucket_name(self, bucket):
+        if bucket == "":
+            raise ValueError("bucket is emptry")
+        if bucket.startswith("gs://"):
+            bucket = bucket.replace("gs://", "")
+        return bucket
+
+    def is_bucket(self, bucket):
+        storage = self.get_storage()
+        bucket = self.bucket(bucket)
+        bucket_list = [x["name"] for x in storage.buckets().list(
+            project=self.data["project"]).execute()["items"]]
+        return True if bucket in bucket_list else False
+
+    def delete_bucket(self, bucket):
+        storage = self.get_storage()
+        bucket = self.bucket_name(bucket)
+        if not self.is_bucket(bucket):
+            return
+        storage.buckets().delete(bucket=bucket).execute()
+
+    def create_bucket(self, bucket):
+        storage = self.get_storage()
+        bucket = self.bucket_name(bucket)
+        if self.is_bucket(bucket):
+            return
+        body = {"name": bucket,
+                "sotrageClass": self.data["storageClass"],
+                "location": self.data["location"],
+                }
+        storage.buckets().insert(project=self.data["project"],
+                                 body=body).execute()

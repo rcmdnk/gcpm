@@ -50,8 +50,8 @@ def service_from_service_account(
     f = expand(service_account_file)
     credentials = service_account.Credentials.from_service_account_file(
         f, scopes=scope)
-    service = build(api_name, api_version,
-                    credentials=credentials)
+    service = build(api_name, api_version, credentials=credentials,
+                    cache_discovery=False)
     return service
 
 
