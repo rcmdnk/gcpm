@@ -23,11 +23,11 @@ __CLIENT_SECRET__ = "LouXW0cr1pkCoi8QtTOweld2"
 
 
 def service_from_oauth(oauth_file, api_name, api_version, scope):
-    expand_path = expand(oauth_file)
-    oauth_dir = os.path.dirname(expand_path)
+    oauth_file = expand(oauth_file)
+    oauth_dir = os.path.dirname(oauth_file)
     if not os.path.isdir(oauth_dir):
         os.makedirs(oauth_dir)
-    storage = Storage(expand_path)
+    storage = Storage(oauth_file)
     credentials = storage.get()
     if credentials is None or credentials.invalid:
         args, unknown = argparser.parse_known_args(sys.argv)
@@ -69,3 +69,25 @@ def get_service(service_account_file="",
             service_account_file=service_account_file,
             api_name=api_name, api_version=api_version, scope=scope)
     return service
+
+
+def get_compute(service_account_file="",
+                oauth_file="~/.config/gcpm/oauth"):
+    return get_service(service_account_file=service_account_file,
+                       oauth_file=oauth_file,
+                       scope=[
+                           "https://www.googleapis.com/auth/compute"
+                       ],
+                       api_name="compute",
+                       api_version="v1")
+
+
+def get_storage(service_account_file="",
+                oauth_file="~/.config/gcpm/oauth"):
+    return get_service(service_account_file=service_account_file,
+                       oauth_file=oauth_file,
+                       scope=[
+                           "https://www.googleapis.com/auth/cloud-platform"
+                       ],
+                       api_name="storage",
+                       api_version="v1")

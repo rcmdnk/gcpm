@@ -6,18 +6,32 @@ def test_version():
     assert __version__ == '0.1.0'
 
 
-def test_zones():
-    g = core.Gcpm(project="grid-test-204503",
-                  service_account_file="~/service_account.json")
-    compute = g.get_compute()
-    print(compute.zones().list(project=g.project).execute())
+def test_show_config():
+    g = core.Gcpm()
+    g.show_config()
     assert True
+
+
+def test_zones():
+    g = core.Gcpm()
+    compute = g.get_compute()
+    zones = compute.zones().list(project=g.data["project"]).execute()
+    print(zones)
+    assert zones["items"][0]["kind"] == "compute#zone"
 
 
 def test_instances():
-    g = core.Gcpm(project="grid-test-204503",
-                  zone="asia-northeast1-b",
-                  service_account_file="~/service_account.json")
+    g = core.Gcpm()
     compute = g.get_compute()
-    print(compute.instances().list(project=g.project, zone=g.zone).execute())
-    assert True
+    instances = compute.instances().list(project=g.data["project"],
+                                         zone=g.data["zone"]).execute()
+    print(instances)
+    assert "items" in instances
+
+
+def test_storage():
+    g = core.Gcpm()
+    storage = g.get_storage()
+    buckets = storage.buckets().list(project=g.data["project"]).execute()
+    print(buckets)
+    assert "items" in buckets
