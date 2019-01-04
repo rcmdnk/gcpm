@@ -1,17 +1,21 @@
+import pytest
 from gcpm import __version__
 from gcpm import core
 
 
+@pytest.mark.version
 def test_version():
     assert __version__ == '0.1.0'
 
 
+@pytest.mark.config
 def test_show_config():
     g = core.Gcpm()
     g.show_config()
     assert True
 
 
+@pytest.mark.compute
 def test_zones():
     g = core.Gcpm()
     compute = g.get_compute()
@@ -20,6 +24,7 @@ def test_zones():
     assert zones["items"][0]["kind"] == "compute#zone"
 
 
+@pytest.mark.compute
 def test_instances():
     g = core.Gcpm()
     compute = g.get_compute()
@@ -29,6 +34,7 @@ def test_instances():
     assert "items" in instances
 
 
+@pytest.mark.storage
 def test_storage():
     g = core.Gcpm()
     storage = g.get_storage()
@@ -37,13 +43,29 @@ def test_storage():
     assert "items" in buckets
 
 
+@pytest.mark.storage
 def test_create_bucket():
     g = core.Gcpm()
-    g.create_bucket("my_gcpm_test_bucket")
+    g.create_bucket()
     assert True
 
 
+@pytest.mark.storage
+def test_upload_file():
+    g = core.Gcpm()
+    g.upload_file("~/.bashrc")
+    assert True
+
+
+@pytest.mark.storage
+def test_delete_file():
+    g = core.Gcpm()
+    g.delete_file(".bashrc")
+    assert True
+
+
+@pytest.mark.storage
 def test_delete_bucket():
     g = core.Gcpm()
-    g.delete_bucket("my_gcpm_test_bucket")
+    g.delete_bucket()
     assert True
