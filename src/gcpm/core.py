@@ -73,7 +73,7 @@ class Gcpm(object):
 
     def is_bucket(self, bucket):
         storage = self.get_storage()
-        bucket = self.bucket(bucket)
+        bucket = self.bucket_name(bucket)
         bucket_list = [x["name"] for x in storage.buckets().list(
             project=self.data["project"]).execute()["items"]]
         return True if bucket in bucket_list else False
