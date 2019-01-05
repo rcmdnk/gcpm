@@ -1,3 +1,5 @@
 tests/data/service_account.json filter=git-crypt diff=git-crypt
 tests/data/gcpm.yaml filter=git-crypt diff=git-crypt
 tests/data/gcpm_oauth.yaml filter=git-crypt diff=git-crypt
+tests/data/gcpm.yml filter=git-crypt diff=git-crypt
+tests/data/gcpm_oauth.yml filter=git-crypt diff=git-crypt
