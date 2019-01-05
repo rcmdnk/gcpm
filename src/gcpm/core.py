@@ -6,15 +6,16 @@
 
 
 import os
+import logging
 from copy import deepcopy
+from time import sleep
 import ruamel.yaml
 import googleapiclient
-from logging import getLogger
-from time import sleep
 from .service import get_service
 from .utils import expand
 
-logger = getLogger(__name__)
+logging.basicConfig()
+logger = logging.getLogger(__name__)
 
 
 class Gcpm(object):
