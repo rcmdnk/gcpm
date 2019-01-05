@@ -7,8 +7,8 @@
 import os
 import sys
 from .utils import expand
-from __init__ import __version__
-from __init__ import __program__
+from .__init__ import __version__
+from .__init__ import __program__
 import httplib2
 from google.oauth2 import service_account
 from oauth2client.file import Storage
