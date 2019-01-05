@@ -20,7 +20,7 @@ logger = getLogger(__name__)
 class Gcpm(object):
     """HTCondor pool manager for Google Cloud Platform."""
 
-    def __init__(self, config="~/.config/gcpm/gcpm.yaml"):
+    def __init__(self, config="~/.config/gcpm/gcpm.yml"):
         self.config = expand(config)
         self.services = {}
         self.data = {
