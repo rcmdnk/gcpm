@@ -20,8 +20,8 @@ before_install:
   - cp gcpm_travis_rsa ~/.ssh/id_rsa
   - chmod 600 ~/.ssh/id_rsa
   - echo -e "Host github.com\n\tStrictHostKeyChecking no\n" >> ~/.ssh/config
-  - mv gcpm.yaml tests/data/
-  - mv gcpm_oauth.yaml tests/data/
+  - mv gcpm.yml tests/data/
+  - mv gcpm_oauth.yml tests/data/
   - mv service_account.json tests/data/
 install:
   - 'curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python'
