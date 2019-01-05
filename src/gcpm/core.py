@@ -5,12 +5,16 @@
 """
 
 
-from __future__ import print_function
 import os
-from .service import get_service
-from .utils import expand
+from copy import deepcopy
 import ruamel.yaml
 import googleapiclient
+from logging import getLogger
+from time import sleep
+from .service import get_service
+from .utils import expand
+
+logger = getLogger(__name__)
 
 
 class Gcpm(object):
@@ -30,6 +34,8 @@ class Gcpm(object):
         }
         self.read_config()
 
+        self.instances = {}
+
     def bucket_name(self, bucket):
         if bucket == "":
             raise ValueError("bucket is emptry")
@@ -39,7 +45,7 @@ class Gcpm(object):
 
     def read_config(self):
         if not os.path.isfile(self.config):
-            print(self.config + " does not exist")
+            logger.warning(self.config + " does not exist")
             return
         yaml = ruamel.yaml.YAML()
         with open(expand(self.config)) as stream:
@@ -57,7 +63,7 @@ class Gcpm(object):
         self.data["bucket"] = self.bucket_name(self.data["bucket"])
 
     def show_config(self):
-        print(self.data)
+        logger.info(self.data)
 
     def service(self, api_name, api_version="v1"):
         if api_name not in self.services:
@@ -72,6 +78,153 @@ class Gcpm(object):
 
     def get_compute(self):
         return self.service("compute", "v1")
+
+    def get_zones(self, **zone_filter):
+        zones = []
+        for zone in self.get_compute().zones().list(
+                project=self.data["project"]).execute()["items"]:
+            is_ok = 1
+            for k, v in zone_filter.items():
+                if zone[k] != v:
+                    is_ok = 0
+                    continue
+            if is_ok == 1:
+                zones.append(zone["name"])
+        return zones
+
+    def update_instances(self):
+        self.instances = {x["name"]: x for x in
+                          self.get_compute().instances().list(
+                              project=self.data["project"],
+                              zone=self.data["zone"]).execute()["items"]}
+
+    def get_instances(self, **instance_filter):
+        self.update_instances()
+        instances = []
+        for instance, info in self.instances.items():
+            is_ok = 1
+            for k, v in instance_filter.items():
+                if info[k] != v:
+                    is_ok = 0
+                    continue
+            if is_ok == 1:
+                instances.append(instance)
+        return instances
+
+    def check_instance(self, instance, status="RUNNING", n_wait=100,
+                       wait_time=10):
+        if n_wait <= 0:
+            return True
+        wait = n_wait
+        while True:
+            self.update_instances()
+            if status == "DELETED":
+                if instance not in self.instances:
+                    return True
+            elif status == "INSERTED":
+                if instance in self.instances:
+                    return True
+            else:
+                if instance not in self.instances:
+                    continue
+                if self.instances[instance]["status"] == status:
+                    return True
+            wait = wait - 1
+            if wait <= 0:
+                break
+            sleep(wait_time)
+        return False
+
+    def start_instance(self, instance, n_wait=100, wait_time=10):
+        if not self.check_instance(instance, "TERMINATED", 1, 1):
+            logger.warning("%s is not TERMINATED status (status=%s)" %
+                           (instance, self.instances[instance]["status"]))
+            return False
+        self.get_compute().instances().start(project=self.data["project"],
+                                             zone=self.data["zone"],
+                                             instance=instance).execute()
+        return self.check_instance(instance, "RUNNING", n_wait, wait_time)
+
+    def stop_instance(self, instance, n_wait=100, wait_time=10):
+        if not self.check_instance(instance, "RUNNING", 1, 1):
+            logger.warning("%s is not RUNNING status (status=%s)" %
+                           (instance, self.instances[instance]["status"]))
+            return False
+        self.get_compute().instances().stop(project=self.data["project"],
+                                            zone=self.data["zone"],
+                                            instance=instance).execute()
+        return self.check_instance(instance, "TERMINATED", n_wait, wait_time)
+
+    def get_source_disk_image(self, family, project=""):
+        if project == "":
+            project = self.data["project"]
+        image_response = self.get_compute().images().getFromFamily(
+            project=project, family=family).execute()
+        return image_response['selfLink']
+
+    def insert_instance(self, instance, n_wait=100, wait_time=10, option={}):
+        if self.check_instance(instance, "INSERTED", 1, 1):
+            logger.warning("%s already exists" % instance)
+            return False
+        opt = deepcopy(option)
+        if "name" not in opt:
+            opt["name"] = instance
+        if not opt["machineType"].startswith("zones"):
+            opt["machineType"] = "zones/%s/machineTypes/%s" % (
+                self.data["zone"], opt["machineType"])
+        if "family" in opt:
+            if "project" in opt:
+                project = opt["project"]
+            else:
+                project = self.data["project"]
+            source_disk_image = self.get_source_disk_image(opt["family"],
+                                                           project)
+            del opt["family"]
+            if "disks" not in opt:
+                opt["disks"] = [{}]
+                opt["disks"][0] = {
+                    "boot": True,
+                    "autoDelete": True,
+                }
+            if "initializeParams" not in opt["disks"][0]:
+                opt["disks"][0]["initializeParams"] = {}
+            opt["disks"][0]["initializeParams"]["sourceImage"] =\
+                source_disk_image
+        if "networkInterfaces" not in opt:
+            opt["networkInterfaces"] = [{
+                "network": "global/networks/default",
+                "accessConfigs": [
+                    {"type": "ONE_TO_ONE_NAT", "name": "External NAT"}
+                ]
+            }]
+        if "disks" not in opt:
+            opt["networkInterfaces"] = [{
+                "network": "global/networks/default",
+                "accessConfigs": [
+                    {"type": "ONE_TO_ONE_NAT", "name": "External NAT"}
+                ]
+            }]
+        self.get_compute().instances().insert(project=self.data["project"],
+                                              zone=self.data["zone"],
+                                              body=opt).execute()
+        if opt["disks"][0]["boot"]:
+            return self.check_instance(instance, "RUNNING", n_wait, wait_time)
+        else:
+            return self.check_instance(instance, "INSERTED", n_wait, wait_time)
+
+    def create_instance(self, instance, n_wait=100, wait_time=10, option={}):
+        return self.insert_instance(instance, n_wait, wait_time, option)
+
+    def delete_instance(self, instance, n_wait=100, wait_time=10):
+        if self.check_instance(instance, "DELETED", 1, 1):
+            logger.warning("%s does not exist)" % instance)
+            return False
+        self.get_compute().instances().delete(
+            project=self.data["project"],
+            zone=self.data["zone"],
+            instance=instance,
+        ).execute()
+        return self.check_instance(instance, "DELETED", n_wait, wait_time)
 
     def get_storage(self):
         return self.service("storage", "v1")
@@ -96,20 +249,21 @@ class Gcpm(object):
                 "sotrageClass": self.data["storageClass"],
                 "location": self.data["location"],
                 }
-        storage.buckets().insert(project=self.data["project"],
-                                 body=body).execute()
+        return storage.buckets().insert(project=self.data["project"],
+                                        body=body).execute()
 
     def upload_file(self, file_name):
         storage = self.get_storage()
         self.create_bucket()
         with open(expand(file_name), 'rb') as f:
-            storage.objects().insert(
+            response = storage.objects().insert(
                 bucket=self.data["bucket"],
                 media_body=googleapiclient.http.MediaIoBaseUpload(
                     f, 'application/octet-stream'),
                 name=os.path.basename(file_name)).execute()
+        return response
 
     def delete_file(self, file_name):
         storage = self.get_storage()
-        storage.objects().delete(
+        return storage.objects().delete(
             bucket=self.data["bucket"], object=file_name).execute()

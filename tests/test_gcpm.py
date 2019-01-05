@@ -1,12 +1,8 @@
+from __future__ import print_function
 import pytest
 from gcpm import __version__
-from gcpm import core
 
-
-@pytest.fixture(scope="module")
-def g():
-    print('prepare gcpm')
-    return core.Gcpm("./tests/data/gcpm.yaml")
+__TEST_INSTANCE__ = "gcpm-test-instance"
 
 
 @pytest.mark.version
@@ -15,56 +11,80 @@ def test_version():
 
 
 @pytest.mark.config
-def test_show_config(g):
-    g.show_config()
+def test_show_config(default_gcpm):
+    default_gcpm.show_config()
     assert True
 
 
 @pytest.mark.compute
-def test_zones(g):
-    compute = g.get_compute()
-    zones = compute.zones().list(project=g.data["project"]).execute()
+def test_zones(default_gcpm):
+    zones = default_gcpm.get_zones()
     print(zones)
-    assert zones["items"][0]["kind"] == "compute#zone"
+    assert "asia-northeast1-b" in zones
+
+
+@pytest.mark.parametrize(
+    "kw", [{}, {"status": "RUNNING"}])
+@pytest.mark.compute
+def test_instances(default_gcpm, kw):
+    instances = default_gcpm.get_instances(**kw)
+    print(instances)
+    assert type(instances) == list
+
+
+# option={"machineType": "custom-2-5120"}
+# option={"machineType": "n1-standard-1"}
+@pytest.mark.compute
+def test_create(default_gcpm):
+    assert default_gcpm.create_instance(
+        instance=__TEST_INSTANCE__,
+        option={
+            "machineType": "custom-2-5120",
+            "family": "centos-7",
+            "project": "centos-cloud",
+        }
+    )
 
 
 @pytest.mark.compute
-def test_instances(g):
-    g = core.Gcpm()
-    compute = g.get_compute()
-    instances = compute.instances().list(project=g.data["project"],
-                                         zone=g.data["zone"]).execute()
-    print(instances)
-    assert "items" in instances
+def test_stop(default_gcpm):
+    assert default_gcpm.stop_instance(__TEST_INSTANCE__)
+
+
+@pytest.mark.compute
+def test_start(default_gcpm):
+    assert default_gcpm.start_instance(__TEST_INSTANCE__)
+
+
+@pytest.mark.compute
+def test_delete(default_gcpm):
+    assert default_gcpm.delete_instance(__TEST_INSTANCE__)
 
 
 @pytest.mark.storage
-def test_storage(g):
-    storage = g.get_storage()
-    buckets = storage.buckets().list(project=g.data["project"]).execute()
+def test_storage(default_gcpm):
+    storage = default_gcpm.get_storage()
+    buckets = storage.buckets().list(
+        project=default_gcpm.data["project"]).execute()
     print(buckets)
     assert "items" in buckets
 
 
 @pytest.mark.storage
-def test_create_bucket(g):
-    g.create_bucket()
-    assert True
+def test_create_bucket(default_gcpm):
+    assert default_gcpm.create_bucket()["kind"] == "storage#bucket"
 
 
 @pytest.mark.storage
-def test_upload_file(g):
-    g.upload_file("~/.bashrc")
-    assert True
+def test_upload_file(default_gcpm):
+    assert default_gcpm.upload_file("~/.bashrc")["kind"] == "storage#object"
 
 
 @pytest.mark.storage
-def test_delete_file(g):
-    g.delete_file(".bashrc")
-    assert True
+def test_delete_file(default_gcpm):
+    assert default_gcpm.delete_file(".bashrc") == ""
 
 
 @pytest.mark.storage
-def test_delete_bucket(g):
-    g.delete_bucket()
-    assert True
+def test_delete_bucket(default_gcpm):
+    assert default_gcpm.delete_bucket() is None
