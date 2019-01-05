@@ -23,6 +23,9 @@ before_install:
   - mv gcpm.yml tests/data/
   - mv gcpm_oauth.yml tests/data/
   - mv service_account.json tests/data/
+  - mkdir -p ~/.config/gcpm/
+  - mv oauth ~/.config/gcpm/
+  - chmod 600 ~/.config/gcpm/oauth
 install:
   - 'curl -sSL https://raw.githubusercontent.com/sdispater/poetry/master/get-poetry.py | python'
   - export PATH="$HOME/.poetry/bin:$PATH"
