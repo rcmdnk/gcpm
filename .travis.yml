@@ -38,8 +38,8 @@ after_script:
   - git checkout -b gh-pages
   - git add -A
   - git commit -m "Coverage check [ci skip]"
-  - git remote set-url --push origin git@github.com:mickaneda/gcpm
-  - git push -u -f origin gh-pages
+  - git remote add origin git@github.com:mickaneda/gcpm
+  - git push -f origin gh-pages
 notifications:
   email:
     recipients:
