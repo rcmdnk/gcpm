@@ -14,9 +14,6 @@ import googleapiclient
 from .service import get_service
 from .utils import expand
 
-logging.basicConfig()
-logger = logging.getLogger(__name__)
-
 
 class Gcpm(object):
     """HTCondor pool manager for Google Cloud Platform."""
@@ -32,8 +29,24 @@ class Gcpm(object):
             "bucket": "",
             "storageClass": "REGIONAL",
             "location": "",
+            "log_file": None,
+            "log_level": logging.INFO,
         }
         self.read_config()
+
+        log_options = {
+            "format": '%(asctime)s %(message)s',
+            "datefmt": '%b %d %H:%M:%S',
+        }
+        if self.data["log_file"] is not None:
+            log_options["filename"] = self.data["log_file"]
+        if type(self.data["log_level"]) is int\
+                or self.data["log_level"].isdigit():
+            log_options["level"] = int(self.data["log_level"])
+        else:
+            log_options["level"] = self.data["log_level"].upper()
+        logging.basicConfig(**log_options)
+        self.logger = logging.getLogger(__name__)
 
         self.instances = {}
 
@@ -46,7 +59,7 @@ class Gcpm(object):
 
     def read_config(self):
         if not os.path.isfile(self.config):
-            logger.warning(self.config + " does not exist")
+            self.logger.warning(self.config + " does not exist")
             return
         yaml = ruamel.yaml.YAML()
         with open(expand(self.config)) as stream:
@@ -61,10 +74,9 @@ class Gcpm(object):
                     self.data["zone"].split("-")[0:2])
         if self.data["bucket"] == "":
             self.data["bucket"] = self.data["project"] + "_" + "gcpm_bucket"
-        self.data["bucket"] = self.bucket_name(self.data["bucket"])
 
     def show_config(self):
-        logger.info(self.data)
+        self.logger.info(self.data)
 
     def service(self, api_name, api_version="v1"):
         if api_name not in self.services:
