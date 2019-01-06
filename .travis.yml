@@ -34,7 +34,6 @@ install:
   - poetry install
 script:
   - ./manage.sh test
-  - sudo systemctl status
 after_script:
   - cd htmlcov
   - git init
