@@ -45,6 +45,8 @@ class Gcpm(object):
             log_options["level"] = int(self.data["log_level"])
         else:
             log_options["level"] = self.data["log_level"].upper()
+        log_options["level"] = "DEBUG"
+        print(log_options)
         logging.basicConfig(**log_options)
         self.logger = logging.getLogger(__name__)
 
@@ -58,9 +60,6 @@ class Gcpm(object):
         return bucket
 
     def read_config(self):
-        if not os.path.isfile(self.config):
-            self.logger.warning(self.config + " does not exist")
-            return
         yaml = ruamel.yaml.YAML()
         with open(expand(self.config)) as stream:
             data = yaml.load(stream)
@@ -150,7 +149,7 @@ class Gcpm(object):
 
     def start_instance(self, instance, n_wait=100, wait_time=10):
         if not self.check_instance(instance, "TERMINATED", 1, 1):
-            logger.warning("%s is not TERMINATED status (status=%s)" %
+            self.logger.warning("%s is not TERMINATED status (status=%s)" %
                            (instance, self.instances[instance]["status"]))
             return False
         self.get_compute().instances().start(project=self.data["project"],
@@ -160,7 +159,7 @@ class Gcpm(object):
 
     def stop_instance(self, instance, n_wait=100, wait_time=10):
         if not self.check_instance(instance, "RUNNING", 1, 1):
-            logger.warning("%s is not RUNNING status (status=%s)" %
+            self.logger.warning("%s is not RUNNING status (status=%s)" %
                            (instance, self.instances[instance]["status"]))
             return False
         self.get_compute().instances().stop(project=self.data["project"],
@@ -177,7 +176,7 @@ class Gcpm(object):
 
     def insert_instance(self, instance, n_wait=100, wait_time=10, option={}):
         if self.check_instance(instance, "INSERTED", 1, 1):
-            logger.warning("%s already exists" % instance)
+            self.logger.warning("%s already exists" % instance)
             return False
         opt = deepcopy(option)
         if "name" not in opt:
@@ -230,7 +229,7 @@ class Gcpm(object):
 
     def delete_instance(self, instance, n_wait=100, wait_time=10):
         if self.check_instance(instance, "DELETED", 1, 1):
-            logger.warning("%s does not exist)" % instance)
+            self.logger.warning("%s does not exist)" % instance)
             return False
         self.get_compute().instances().delete(
             project=self.data["project"],
