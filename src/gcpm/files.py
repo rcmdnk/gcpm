@@ -9,6 +9,10 @@ import os
 from .utils import expand
 
 
+__SERVICE_FILE__ = "/usr/lib/systemd/system/gcpm.service"
+__LOGROTATE_FILE__ = "/etc/logrotate.d/gcpm.conf"
+
+
 def make_file(func):
     def decorator(filename, *args, **kwargs):
         filename = expand(filename)
@@ -79,7 +83,7 @@ echo "{{\\"date\\": \\"$(date +%s)\\", \\"preempted\\": ${{preempted}}}}" \
 
 
 @make_file
-def make_service(filename="/usr/lib/systemd/system/gcpm.service"):
+def make_service(filename=__SERVICE_FILE__):
     return """[Unit]
 Description = HTCondor pool manager for Google Cloud Platform
 
@@ -96,8 +100,12 @@ SyslogIdentifier = gcpm
 WantedBy = multi-user.target""".format(path=os.environ["PATH"])
 
 
+def rm_service(filename=__SERVICE_FILE__):
+    os.remove(filename)
+
+
 @make_file
-def make_logrotate(filename="/etc/logrotate.d/gcpm.conf"):
+def make_logrotate(filename=__LOGROTATE_FILE__):
     return """/var/log/gcpm.log {
   missingok
   rotate 10
@@ -109,3 +117,7 @@ def make_logrotate(filename="/etc/logrotate.d/gcpm.conf"):
       systemctl restart gcpm
   endscript
 }""".format(path=os.environ["PATH"])
+
+
+def rm_logrotate(filename=__LOGROTATE_FILE__):
+    os.remove(filename)
