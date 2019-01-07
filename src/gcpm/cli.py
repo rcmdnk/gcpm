@@ -22,8 +22,13 @@ class CliObject(object):
         """Main function to run the loop."""
         pass
 
-    def set_pool_password(self):
+    def service(self):
+        """Run the loop as service."""
+        pass
+
+    def set_pool_password(self, pool_password):
         """Set pool_password file in google storage."""
+        self.gcpm.get_gcs().upload_file(pool_password)
         pass
 
 

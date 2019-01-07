@@ -1,4 +1,6 @@
 from __future__ import print_function
+import os
+import tempfile
 import pytest
 
 
@@ -13,14 +15,13 @@ def test_storage(default_gcpm):
 
 
 @pytest.mark.storage
-def test_upload_file(default_gcpm):
-    assert default_gcpm.get_gcs().upload_file("~/.bashrc")["kind"]\
-        == "storage#object"
-
-
-@pytest.mark.storage
-def test_delete_file(default_gcpm):
-    assert default_gcpm.get_gcs().delete_file(".bashrc") == ""
+def test_upload_delete_file(default_gcpm):
+    with tempfile.NamedTemporaryFile() as f:
+        name = f.name
+        assert default_gcpm.get_gcs().upload_file(name)["kind"]\
+            == "storage#object"
+        basename = os.path.basename(name)
+        assert default_gcpm.get_gcs().delete_file(basename) == ""
 
 
 @pytest.mark.storage
