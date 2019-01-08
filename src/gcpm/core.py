@@ -9,9 +9,12 @@ import os
 import logging
 import copy
 import ruamel.yaml
+from time import sleep
 from .utils import expand
 from .files import make_startup_script, make_shutdown_script, make_service,\
-    make_logrotate
+    make_logrotate, rm_service, rm_logrotate
+from .condor import condor_status, condor_config_val, condor_reconfig, \
+    condor_wn, condor_wn_status, condor_idle_jobs
 from .gce import Gce
 from .gcs import Gcs
 
@@ -20,17 +23,20 @@ class Gcpm(object):
     """HTCondor pool manager for Google Cloud Platform."""
 
     def __init__(self, config="", server=False):
+        self.logger = None
         self.is_server = server
         if config == "":
             if self.is_server:
                 self.config = "/etc/gcpm.yml"
             else:
                 self.config = expand("~/.config/gcpm/gcpm.yml")
+        else:
+            self.config = expand(config)
 
         if self.is_server:
-            config_dir = "~/.config/gcpm"
-        else:
             config_dir = "/var/cache/gcpm"
+        else:
+            config_dir = "~/.config/gcpm"
 
         self.data = {
             "config_dir": config_dir,
@@ -46,12 +52,13 @@ class Gcpm(object):
             "preemptible": 0,
             "off_timer": 0,
             "zone": "",
-            "network_tag": "",
+            "network_tag": [],
             "reuse": 0,
             "interval": 10,
             "head_info": "gcp",
             "head": "",
             "port": 9618,
+            "domain": "",
             "admin": "",
             "owner": "",
             "bg_cmd": 1,
@@ -61,7 +68,7 @@ class Gcpm(object):
             "log_file": None,
             "log_level": logging.INFO,
         }
-        self.read_config()
+        self.update_config()
 
         log_options = {
             "format": '%(asctime)s %(message)s',
@@ -81,6 +88,17 @@ class Gcpm(object):
         self.services = {}
         self.gce = None
         self.gcs = None
+        self.n_wait = 0
+        self.create_option = ""
+        self.instances_gce = {}
+        self.wns = {}
+        self.prev_wns = {}
+        self.wn_list = ""
+        self.condor_wns = []
+        self.wn_starting = []
+        self.wn_deleting = []
+        self.full_wns = []
+        self.total_core_use = []
 
     def check_config(self):
         return True
@@ -91,6 +109,11 @@ class Gcpm(object):
             data = yaml.load(stream)
         for k, v in data.items():
             self.data[k] = v
+
+        self.prefix_core = {}
+        for machine in self.data["machines"]:
+            self.prefix_core[machine["core"]] = \
+                "%s-$dcore" % (self.data["prefix"], machine["core"])
         if self.data["location"] == "":
             if self.data["storageClass"] == "MULTI_REGIONAL":
                 self.data["location"] = self.data["zone"].split("-")[0]
@@ -110,9 +133,12 @@ class Gcpm(object):
             else:
                 raise ValueError("Both %s and %s are empty"
                                  % ("head", "head_info"))
+        if self.data["bg_cmd"] == 0:
+            self.n_wait = 100
 
     def show_config(self):
-        self.logger.info(self.data)
+        if self.logger is not None:
+            self.logger.info(self.data)
 
     def make_scripts(self):
         for machine in self.data["machines"]:
@@ -137,8 +163,17 @@ class Gcpm(object):
                 % (self.data["config_dir"], machine["core"]),
             )
 
+    def make_create_option(self):
+        self.create_option = ""
+        self.create_option += " --zone=%s" % self.data["zone"]
+        if self.data["preemptible"] == 1:
+            self.create_option += " --preemptible"
+        if self.data["network_tag"] != "":
+            self.create_option += " --tags=%s" % self.data["network_tag"]
+
     def update_config(self):
         orig_data = copy.deepcopy(self.data)
+        self.read_config()
         self.check_config()
 
         if orig_data == self.data:
@@ -153,7 +188,7 @@ class Gcpm(object):
         make_logrotate()
 
     def uninstall(self):
-        rm_server()
+        rm_service()
         rm_logrotate()
 
     def get_gce(self):
@@ -178,5 +213,244 @@ class Gcpm(object):
             )
         return self.gcs
 
+    def check_condor_status(self):
+        if condor_status()[0] != 0:
+            self.logger.error("HTCondor is not running!")
+            raise
+
+    def get_instances_wns(self):
+        instances = {}
+        for instance, info in self.get_instances_wns():
+            is_use = 0
+            for core, prefix in self.prefix_core.items():
+                if instance.startswith(prefix):
+                    is_use = 1
+                    break
+            if is_use:
+                instances[instance] = info
+        return instances
+
+    def get_instances_running(self):
+        return {x: y for x, y in self.get_instances_wns()
+                if y["status"] == "RUNNING"}
+
+    def get_instances_non_terminated(self):
+        return {x: y for x, y in self.get_instances_wns()
+                if y["status"] != "TERMINATED"}
+
+    def get_instances_terminated(self):
+        return {x: y for x, y in self.get_instances_wns()
+                if y["status"] == "TERMINATED"}
+
+    def add_gce_wns(self):
+        for instance, info in self.get_instances_running():
+            if self.data["head_info"] == "gcp":
+                ip = info["networkIP"]
+            else:
+                ip = info["natIP"]
+            self.wns[instance] = ip
+
+    def add_remaining_wns(self):
+        # Check instance which is not running, but in condor_status
+        # (should be in the list until it is removed from the status)
+        for wn in condor_wn():
+            if wn not in self.wns:
+                if wn in self.prev_wns:
+                    self.wns[wn] = self.prev_wns[wn]
+                else:
+                    self.logger.warning(
+                        "%s is listed in the condor status, "
+                        "but no information can be taken from gce")
+
+    def make_wn_list(self):
+        wn_list = ""
+        for name, ip in self.wns.items():
+            wn_list += \
+                " $wns condor@$(UID_DOMAIN)/%s condor_pool@$(UID_DOMAIN)/%s" \
+                % (ip, ip)
+
+    def update_condor_collector(self):
+        condor_config_val("-collector", "-set" "'WNS = %s'" % self.wn_list)
+        condor_reconfig("-collector")
+
+    def clean_wns(self):
+        for wn in self.wn_starting:
+            if wn in self.condor_wns:
+                self.wn_starting.remove(wn)
+
+        exist_list = self.wns.keys() + self.wn_starting + self.wn_deleting
+        instances = []
+        for instance, info in self.get_instances_wns():
+            if info["status"] == "TERMINATED":
+                continue
+            instances.append(instance)
+            # Delete condor_off instances
+            if info["status"] == "RUNNING" and instance not in exist_list:
+                self.wn_deleting.append(instance)
+                if self.data["reuse"]:
+                    self.get_gce().stop_instance(instance, n_wait=self.n_wait)
+                else:
+                    self.get_gce().delete_instance(instance, n_wait=self.n_wait)
+
+        for wn in self.wn_deleting:
+            if wn not in instances:
+                self.wn_deleting.remove(wn)
+
+    def check_terminated(self):
+        if self.data["reuse"] == 1:
+            return
+        for instance, info in self.get_instances_terminated().items():
+            if instance in self.wn_starting + self.wn_deleting:
+                continue
+            self.wn_deleting.append(instance)
+            self.get_gce().delete_instance(instance, n_wait=self.n_wait)
+
+    def check_wns(self):
+        self.check_terminated()
+
+        self.full_wns = self.get_instances_non_terminated().keys() + \
+            self.wn_starting + self.wn_deleting
+
+        self.total_core_use = 0
+        for wn in self.full_wns:
+            for core, prefix in self.prefix_core:
+                if wn.startswith(prefix):
+                    self.total_core_use += core
+                    break
+
+    def update_wns(self):
+        self.instances_gce = self.get_gce().get_instances(update=True)
+        self.condor_wns = condor_wn()
+
+        self.prev_wns = self.wns
+        self.wns = {}
+
+        for s in self.data["static"]:
+            self.wns[s] = s
+        self.add_gce_wns()
+        self.add_remaining_wns()
+
+        self.make_wn_list()
+        self.update_condor_collector()
+
+        self.clean_wns()
+
+        self.check_wns()
+
+    def check_for_core(self, machine, idle_jobs, wn_status):
+        core = machine["core"]
+        n_idle_jobs = idle_jobs[core]
+        machines = {x: y for x, y in wn_status.items()
+                    if x.startswith.prefix_core[core]}
+        n_machines = len(machines)
+        unclaimed = [x for x, y in machines if y == "Unclaimed"]
+        n_unclaimed = len(unclaimed) - n_idle_jobs - machine["idle"]
+
+        for wn in self.wn_starting:
+            if wn.startswith(self.prefix_core[core]):
+                n_machines += 1
+                n_unclaimed += 1
+
+        if n_machines >= machine["max"]:
+            return False
+
+        if n_unclaimed > 0:
+            return False
+
+        if self.data["max_cores"] > 0:
+            if self.total_core_use + core > self.data["max_cores"]:
+                return False
+
+        return True
+
+    def start_terminated(self, core):
+        if self.data["reuse"] != 1:
+            return False
+
+        for instance in self.get_instances_non_terminated():
+            if instance.startswith(self.prefix_core[core]):
+                self.wn_starting.append(instance)
+                self.get_gce().start_instance(instance, n_wait=self.n_wait)
+                return True
+
+    def new_instance(self, instance_name, machine):
+        startup = "%s/startup-%dcore.sh" % (self.data["config_dir"],
+                                            machine["core"])
+        shutdown = "%s/shutdown-%dcore.sh" % (self.data["config_dir"],
+                                              machine["core"])
+        # memory must be N x 256 (MB)
+        memory = int(machine["mem"]) / 256 * 256
+        if memory < machine["mem"]:
+            memory += 256
+
+        option = {
+            "name": instance_name,
+            "machineType": "custom-%d-%d" % (machine["core"], memory),
+            "tags": {"items": self.data["network_tags"]},
+            "disks": [
+                {
+                    "boot": True,
+                    "autoDelete": True,
+                    "initializeParams": {
+                        "diskSizeGb": machine["disk"],
+                        "sourceImage":
+                        "global/images/" + machine["image"]
+                    }
+                }
+            ],
+            "metadata": {
+                "items": [
+                    {"key": "startup-script", "value": startup},
+                    {"key": "shutdown-script", "value": shutdown},
+                ]
+            },
+            "scheduling": {
+                "preemptible": bool(self.data["preemptible"])
+            }
+        }
+
+        self.wn_starting.append(instance_name)
+        self.get_gce().create_instance(intance=instance_name, option=option,
+                                       n_wait=self.n_wait)
+
+    def prepare_wns(self, idle_jobs, wn_status):
+        created = False
+        for machine in self.data["machines"]:
+            if not self.check_for_core(machine, idle_jobs, wn_status):
+                continue
+
+            if self.start_terminated():
+                continue
+
+            n = 1
+            while n < 10000:
+                instance_name = "%s-%04d" % (
+                    self.prefix_core[machine["core"]], n)
+                if instance_name in self.full_wns:
+                    continue
+
+                self.new_instance(instance_name, machine)
+                created = True
+                break
+
+        return created
+
+    def prepare_wns_wrapper(self):
+        idle_jobs = condor_idle_jobs()
+        wn_status = condor_wn_status()
+        while True:
+            if not self.prepare_wns(idle_jobs, wn_status):
+                break
+
+    def series(self):
+        self.check_condor_status()
+        self.update_config()
+        self.update_wns()
+        self.prepare_wns()
+        sleep(self.data["interval"])
+
     def run(self):
-        pass
+        self.show_config()
+        while True:
+            self.logger.debug("loop top")
+            self.series()

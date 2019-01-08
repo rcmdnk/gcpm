@@ -46,15 +46,32 @@ class Gce(object):
                 zones.append(zone["name"])
         return zones
 
+    def get_instance(self, instance, update=False):
+        if update:
+            try:
+                info = self.compute().instances().get(
+                    project=self.project,
+                    zone=self.zone,
+                    instance=instance).execute()
+            except Exception:
+                info = None
+        else:
+            if instance in self.instances.items():
+                info = self.instances[instance]
+            else:
+                info = None
+        return info
+
     def update_instances(self):
         self.instances = {x["name"]: x for x in
                           self.compute().instances().list(
                               project=self.project,
                               zone=self.zone).execute()["items"]}
 
-    def get_instances(self, **instance_filter):
-        self.update_instances()
-        instances = []
+    def get_instances(self, update=False, instance_filter={}):
+        if update:
+            self.update_instances()
+        instances = {}
         for instance, info in self.instances.items():
             is_ok = 1
             for k, v in instance_filter.items():
@@ -62,11 +79,11 @@ class Gce(object):
                     is_ok = 0
                     continue
             if is_ok == 1:
-                instances.append(instance)
+                instances[instance] = info
         return instances
 
     def check_instance(self, instance, status="RUNNING", n_wait=-1,
-                       wait_time=-1):
+                       wait_time=-1, update=False):
         if n_wait == -1:
             n_wait = self.n_wait
         if wait_time == -1:
@@ -74,27 +91,28 @@ class Gce(object):
         if n_wait <= 0:
             return True
         wait = n_wait
+        info = self.get_instance(instance, update)
         while True:
-            self.update_instances()
             if status == "DELETED":
-                if instance not in self.instances:
+                if info is None:
                     return True
             elif status == "INSERTED":
-                if instance in self.instances:
+                if info is not None:
                     return True
             else:
-                if instance not in self.instances:
+                if info is None:
                     continue
-                if self.instances[instance]["status"] == status:
+                if info["status"] == status:
                     return True
             wait = wait - 1
             if wait <= 0:
                 break
             sleep(wait_time)
+            info = self.get_instance(instance)
         return False
 
-    def start_instance(self, instance, n_wait=-1, wait_time=-1):
-        if not self.check_instance(instance, "TERMINATED", 1, 1):
+    def start_instance(self, instance, n_wait=-1, wait_time=-1, update=False):
+        if not self.check_instance(instance, "TERMINATED", 1, 1, update):
             self.logger.warning("%s is not TERMINATED status (status=%s)" %
                                 (instance, self.instances[instance]["status"]))
             return False
@@ -103,8 +121,8 @@ class Gce(object):
                                          instance=instance).execute()
         return self.check_instance(instance, "RUNNING", n_wait, wait_time)
 
-    def stop_instance(self, instance, n_wait=-1, wait_time=-1):
-        if not self.check_instance(instance, "RUNNING", 1, 1):
+    def stop_instance(self, instance, n_wait=-1, wait_time=-1, update=False):
+        if not self.check_instance(instance, "RUNNING", 1, 1, update):
             self.logger.warning("%s is not RUNNING status (status=%s)" %
                                 (instance, self.instances[instance]["status"]))
             return False
@@ -120,8 +138,9 @@ class Gce(object):
             project=project, family=family).execute()
         return image_response['selfLink']
 
-    def insert_instance(self, instance, n_wait=-1, wait_time=-1, option={}):
-        if self.check_instance(instance, "INSERTED", 1, 1):
+    def insert_instance(self, instance, n_wait=-1, wait_time=-1, option={},
+                        update=False):
+        if self.check_instance(instance, "INSERTED", 1, 1, update):
             self.logger.warning("%s already exists" % instance)
             return False
         opt = deepcopy(option)
@@ -170,11 +189,13 @@ class Gce(object):
         else:
             return self.check_instance(instance, "INSERTED", n_wait, wait_time)
 
-    def create_instance(self, instance, n_wait=-1, wait_time=-1, option={}):
-        return self.insert_instance(instance, n_wait, wait_time, option)
+    def create_instance(self, instance, n_wait=-1, wait_time=-1, option={},
+                        update=False):
+        return self.insert_instance(instance, n_wait, wait_time, option,
+                                    update)
 
-    def delete_instance(self, instance, n_wait=-1, wait_time=-1):
-        if self.check_instance(instance, "DELETED", 1, 1):
+    def delete_instance(self, instance, n_wait=-1, wait_time=-1, update=False):
+        if self.check_instance(instance, "DELETED", 1, 1, update):
             self.logger.warning("%s does not exist)" % instance)
             return False
         self.compute().instances().delete(

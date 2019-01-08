@@ -12,10 +12,11 @@ def test_zones(default_gcpm):
 
 
 @pytest.mark.parametrize(
-    "kw", [{}, {"status": "RUNNING"}])
+    "instance_filter", [{}, {"status": "RUNNING"}])
 @pytest.mark.compute
-def test_instances(default_gcpm, kw):
-    instances = default_gcpm.get_gce().get_instances(**kw)
+def test_instances(default_gcpm, instance_filter):
+    instances = default_gcpm.get_gce().get_instances(
+        update=True, instance_filter=instance_filter)
     print(instances)
     assert type(instances) == list
 
