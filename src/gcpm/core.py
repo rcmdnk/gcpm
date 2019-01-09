@@ -50,7 +50,6 @@ class Gcpm(object):
             "max_cores": 0,
             "static": [],
             "prefix": "gcp-wn",
-            "image": [],
             "preemptible": 0,
             "off_timer": 0,
             "zone": "",
@@ -63,7 +62,7 @@ class Gcpm(object):
             "domain": "",
             "admin": "",
             "owner": "",
-            "bg_cmd": 1,
+            "wait_cmd": 0,
             "bucket": "",
             "storageClass": "REGIONAL",
             "location": "",
@@ -143,7 +142,7 @@ class Gcpm(object):
             else:
                 raise ValueError("Both %s and %s are empty"
                                  % ("head", "head_info"))
-        if self.data["bg_cmd"] == 0:
+        if self.data["wait_cmd"] == 1:
             self.n_wait = 100
 
     def show_config(self):
