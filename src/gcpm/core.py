@@ -100,6 +100,11 @@ class Gcpm(object):
         self.full_wns = []
         self.total_core_use = []
 
+    @staticmethod
+    def help():
+        print("""
+""")
+
     def check_config(self):
         return True
 
@@ -113,7 +118,7 @@ class Gcpm(object):
         self.prefix_core = {}
         for machine in self.data["machines"]:
             self.prefix_core[machine["core"]] = \
-                "%s-$dcore" % (self.data["prefix"], machine["core"])
+                "%s-%dcore" % (self.data["prefix"], machine["core"])
         if self.data["location"] == "":
             if self.data["storageClass"] == "MULTI_REGIONAL":
                 self.data["location"] = self.data["zone"].split("-")[0]
@@ -185,7 +190,7 @@ class Gcpm(object):
 
     def install(self):
         make_service()
-        make_logrotate()
+        make_logrotate(mkdir=False)
 
     def uninstall(self):
         rm_service()
@@ -288,9 +293,12 @@ class Gcpm(object):
             if info["status"] == "RUNNING" and instance not in exist_list:
                 self.wn_deleting.append(instance)
                 if self.data["reuse"]:
-                    self.get_gce().stop_instance(instance, n_wait=self.n_wait)
+                    self.get_gce().stop_instance(instance, n_wait=self.n_wait,
+                                                 update=False)
                 else:
-                    self.get_gce().delete_instance(instance, n_wait=self.n_wait)
+                    self.get_gce().delete_instance(instance,
+                                                   n_wait=self.n_wait,
+                                                   update=False)
 
         for wn in self.wn_deleting:
             if wn not in instances:
@@ -303,7 +311,8 @@ class Gcpm(object):
             if instance in self.wn_starting + self.wn_deleting:
                 continue
             self.wn_deleting.append(instance)
-            self.get_gce().delete_instance(instance, n_wait=self.n_wait)
+            self.get_gce().delete_instance(instance, n_wait=self.n_wait,
+                                           update=False)
 
     def check_wns(self):
         self.check_terminated()
@@ -370,7 +379,8 @@ class Gcpm(object):
         for instance in self.get_instances_non_terminated():
             if instance.startswith(self.prefix_core[core]):
                 self.wn_starting.append(instance)
-                self.get_gce().start_instance(instance, n_wait=self.n_wait)
+                self.get_gce().start_instance(instance, n_wait=self.n_wait,
+                                              update=False)
                 return True
 
     def new_instance(self, instance_name, machine):
@@ -411,7 +421,7 @@ class Gcpm(object):
 
         self.wn_starting.append(instance_name)
         self.get_gce().create_instance(intance=instance_name, option=option,
-                                       n_wait=self.n_wait)
+                                       n_wait=self.n_wait, update=False)
 
     def prepare_wns(self, idle_jobs, wn_status):
         created = False

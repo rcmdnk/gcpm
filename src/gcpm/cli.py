@@ -15,23 +15,31 @@ class CliObject(object):
     def __init__(self, config="~/.config/gcpm/gcpm.yml"):
         self.config = config
 
+    def help(self):
+        Gcpm.help()
+
     def show_config(self):
         Gcpm(config=self.config).show_config()
+
+    def install(self):
+        """Install service related files."""
+        Gcpm(config=self.config).install()
+
+    def uninstall(self):
+        """Uninstall service related files."""
+        Gcpm(config=self.config).uninstall()
 
     def run(self):
         """Main function to run the loop."""
         Gcpm(config=self.config).run()
-        pass
 
     def service(self):
         """Run the loop as service."""
         Gcpm(config=self.config, service=True).run()
-        pass
 
     def set_pool_password(self, pool_password):
         """Set pool_password file in google storage."""
         Gcpm(config=self.config).get_gcs().upload_file(pool_password)
-        pass
 
 
 def cli():

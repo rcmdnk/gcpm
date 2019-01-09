@@ -3,6 +3,7 @@ import os
 import sys
 import shutil
 import tempfile
+import pytest
 from gcpm.cli import cli
 
 
@@ -16,6 +17,7 @@ def test_show_config():
     assert True
 
 
+@pytest.mark.skip
 def test_run():
     sys.argv = ["gcpm", "run", "--config", "./tests/data/gcpm.yml"]
     cli()

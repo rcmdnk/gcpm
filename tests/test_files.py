@@ -24,11 +24,11 @@ def test_service():
     filename = "./gcpm.service"
     files.make_service(filename=filename)
     assert os.path.isfile(filename)
-    os.remove(filename)
+    files.rm_service(filename=filename)
 
 
 def test_logrotate():
     filename = "./gcpm.conf"
     files.make_logrotate(filename=filename)
     assert os.path.isfile(filename)
-    os.remove(filename)
+    files.rm_logrotate(filename=filename)

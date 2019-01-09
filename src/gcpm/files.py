@@ -14,15 +14,24 @@ __LOGROTATE_FILE__ = "/etc/logrotate.d/gcpm.conf"
 
 
 def make_file(func):
-    def decorator(filename, *args, **kwargs):
+    def decorator(filename, mkdir, *args, **kwargs):
         filename = expand(filename)
         directory = os.path.dirname(filename)
         if not os.path.isdir(directory):
-            os.makedirs(directory)
+            if mkdir:
+                os.makedirs(directory)
+            else:
+                return
         script = func(filename, *args, **kwargs)
         with open(filename, mode='w') as f:
                 f.write(script)
     return decorator
+
+
+def rm_file(filename):
+    if not os.path.isfile(filename):
+        return
+    os.remove(filename)
 
 
 @make_file
@@ -101,7 +110,7 @@ WantedBy = multi-user.target""".format(path=os.environ["PATH"])
 
 
 def rm_service(filename=__SERVICE_FILE__):
-    os.remove(filename)
+    rm_file(filename)
 
 
 @make_file
@@ -116,8 +125,8 @@ def make_logrotate(filename=__LOGROTATE_FILE__):
   postrotate
       systemctl restart gcpm
   endscript
-}""".format(path=os.environ["PATH"])
+}""".format()
 
 
 def rm_logrotate(filename=__LOGROTATE_FILE__):
-    os.remove(filename)
+    rm_file(filename)
