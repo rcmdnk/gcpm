@@ -13,19 +13,17 @@ __SERVICE_FILE__ = "/usr/lib/systemd/system/gcpm.service"
 __LOGROTATE_FILE__ = "/etc/logrotate.d/gcpm.conf"
 
 
-def make_file(func):
-    def decorator(filename, mkdir=True, *args, **kwargs):
-        filename = expand(filename)
-        directory = os.path.dirname(filename)
-        if not os.path.isdir(directory):
-            if mkdir:
-                os.makedirs(directory)
-            else:
-                return
-        script = func(filename, *args, **kwargs)
-        with open(filename, mode='w') as f:
-                f.write(script)
-    return decorator
+def make_file(filename, content="", mkdir=True):
+    filename = expand(filename)
+    directory = os.path.dirname(filename)
+    if not os.path.isdir(directory):
+        if mkdir:
+            os.makedirs(directory)
+        else:
+            return False
+    with open(filename, mode='w') as f:
+            f.write(content)
+    return True
 
 
 def rm_file(filename):
@@ -34,10 +32,10 @@ def rm_file(filename):
     os.remove(filename)
 
 
-@make_file
 def make_startup_script(filename, core, mem, disk, image, preemptible, admin,
-                        head, port, domain, owner, bucket, off_timer=0):
-    script = """#!/usr/bin/env bash
+                        head, port, domain, owner, bucket, off_timer=0,
+                        mkdir=True):
+    content = """#!/usr/bin/env bash
 echo "{{\\"date\\": \\"$(date +%s)\\", \\"core\\": {core},\\"mem\\": {mem}, \
 \\"disk\\": {disk}, \\"image\\": \\"{image}\\", \
 \\"preemptible\\": {preemptible}}}" >/var/log/nodeinfo.log
@@ -73,27 +71,27 @@ date >> /root/condor_started""".format(core=core, mem=mem, disk=disk,
                                        bucket=bucket)
 
     if off_timer != 0:
-        script += """
+        content += """
 sleep {off_timer}
 condor_off -peaceful -startd
 date >> /root/condor_off""".format(off_timer=off_timer)
-
-    return script
+    make_file(filename, content, mkdir)
 
 
 @make_file
-def make_shutdown_script(filename):
-    return """#!/usr/bin/env bash
+def make_shutdown_script(filename, mkdir=True):
+    content = """#!/usr/bin/env bash
 preempted=$(\
 curl "http://metadata.google.internal/computeMetadata/v1/instance/preempted" \
 -H "Metadata-Flavor: Google")
 echo "{{\\"date\\": \\"$(date +%s)\\", \\"preempted\\": ${{preempted}}}}" \
 >>/var/log/shutdown.log""".format()
+    make_file(filename, content, mkdir)
 
 
 @make_file
-def make_service(filename=__SERVICE_FILE__):
-    return """[Unit]
+def make_service(filename=__SERVICE_FILE__, mkdir=True):
+    content = """[Unit]
 Description = HTCondor pool manager for Google Cloud Platform
 
 [Service]
@@ -107,6 +105,7 @@ SyslogIdentifier = gcpm
 
 [Install]
 WantedBy = multi-user.target""".format(path=os.environ["PATH"])
+    make_file(filename, content, mkdir)
 
 
 def rm_service(filename=__SERVICE_FILE__):
@@ -114,8 +113,8 @@ def rm_service(filename=__SERVICE_FILE__):
 
 
 @make_file
-def make_logrotate(filename=__LOGROTATE_FILE__):
-    return """/var/log/gcpm.log {{
+def make_logrotate(filename=__LOGROTATE_FILE__, mkdir=True):
+    content = """/var/log/gcpm.log {{
   missingok
   rotate 10
   dateext
@@ -126,6 +125,7 @@ def make_logrotate(filename=__LOGROTATE_FILE__):
       systemctl restart gcpm
   endscript
 }}""".format()
+    make_file(filename, content, mkdir)
 
 
 def rm_logrotate(filename=__LOGROTATE_FILE__):
