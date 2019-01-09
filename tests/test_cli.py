@@ -17,9 +17,38 @@ def test_show_config():
     assert True
 
 
+def test_help():
+    sys.argv = ["gcpm", "help"]
+    cli()
+    sys.argv = __ORIG_ARGV__
+    assert True
+
+
+def test_install():
+    sys.argv = ["gcpm", "install"]
+    cli()
+    sys.argv = __ORIG_ARGV__
+    assert True
+
+
+def test_uninstall():
+    sys.argv = ["gcpm", "uninstall"]
+    cli()
+    sys.argv = __ORIG_ARGV__
+    assert True
+
+
 @pytest.mark.skip
 def test_run():
     sys.argv = ["gcpm", "run", "--config", "./tests/data/gcpm.yml"]
+    cli()
+    sys.argv = __ORIG_ARGV__
+    assert True
+
+
+@pytest.mark.skip
+def test_service():
+    sys.argv = ["gcpm", "service", "--config", "./tests/data/gcpm.yml"]
     cli()
     sys.argv = __ORIG_ARGV__
     assert True

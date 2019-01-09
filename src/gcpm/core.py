@@ -52,7 +52,6 @@ class Gcpm(object):
             "prefix": "gcp-wn",
             "preemptible": 0,
             "off_timer": 0,
-            "zone": "",
             "network_tag": [],
             "reuse": 0,
             "interval": 10,
@@ -171,14 +170,6 @@ class Gcpm(object):
                 filename="%s/shutdown-%dcore.sh"
                 % (self.data["config_dir"], machine["core"]),
             )
-
-    def make_create_option(self):
-        self.create_option = ""
-        self.create_option += " --zone=%s" % self.data["zone"]
-        if self.data["preemptible"] == 1:
-            self.create_option += " --preemptible"
-        if self.data["network_tag"] != "":
-            self.create_option += " --tags=%s" % self.data["network_tag"]
 
     def update_config(self):
         orig_data = copy.deepcopy(self.data)
