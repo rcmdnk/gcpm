@@ -14,7 +14,7 @@ __LOGROTATE_FILE__ = "/etc/logrotate.d/gcpm.conf"
 
 
 def make_file(func):
-    def decorator(filename, mkdir, *args, **kwargs):
+    def decorator(filename, mkdir=True, *args, **kwargs):
         filename = expand(filename)
         directory = os.path.dirname(filename)
         if not os.path.isdir(directory):
@@ -115,7 +115,7 @@ def rm_service(filename=__SERVICE_FILE__):
 
 @make_file
 def make_logrotate(filename=__LOGROTATE_FILE__):
-    return """/var/log/gcpm.log {
+    return """/var/log/gcpm.log {{
   missingok
   rotate 10
   dateext
@@ -125,7 +125,7 @@ def make_logrotate(filename=__LOGROTATE_FILE__):
   postrotate
       systemctl restart gcpm
   endscript
-}""".format()
+}}""".format()
 
 
 def rm_logrotate(filename=__LOGROTATE_FILE__):

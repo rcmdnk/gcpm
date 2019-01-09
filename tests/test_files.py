@@ -11,6 +11,7 @@ def test_startup_script():
                               bucket="test-bucket", off_timer=600)
     assert os.path.isfile(filename)
     os.remove(filename)
+    assert not os.path.isfile(filename)
 
 
 def test_shutdown_script():
@@ -18,6 +19,7 @@ def test_shutdown_script():
     files.make_shutdown_script(filename=filename)
     assert os.path.isfile(filename)
     os.remove(filename)
+    assert not os.path.isfile(filename)
 
 
 def test_service():
@@ -25,6 +27,7 @@ def test_service():
     files.make_service(filename=filename)
     assert os.path.isfile(filename)
     files.rm_service(filename=filename)
+    assert not os.path.isfile(filename)
 
 
 def test_logrotate():
@@ -32,3 +35,4 @@ def test_logrotate():
     files.make_logrotate(filename=filename)
     assert os.path.isfile(filename)
     files.rm_logrotate(filename=filename)
+    assert not os.path.isfile(filename)
