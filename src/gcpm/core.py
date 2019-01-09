@@ -22,11 +22,11 @@ from .gcs import Gcs
 class Gcpm(object):
     """HTCondor pool manager for Google Cloud Platform."""
 
-    def __init__(self, config="", server=False):
+    def __init__(self, config="", service=False):
         self.logger = None
-        self.is_server = server
+        self.is_service = service
         if config == "":
-            if self.is_server:
+            if self.is_service:
                 self.config = "/etc/gcpm.yml"
             else:
                 self.config = "~/.config/gcpm/gcpm.yml"
@@ -34,7 +34,7 @@ class Gcpm(object):
             self.config = config
         self.config = expand(self.config)
 
-        if self.is_server:
+        if self.is_service:
             config_dir = "/var/cache/gcpm"
         else:
             config_dir = "~/.config/gcpm"

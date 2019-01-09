@@ -78,7 +78,6 @@ date >> /root/condor_off""".format(off_timer=off_timer)
     make_file(filename, content, mkdir)
 
 
-@make_file
 def make_shutdown_script(filename, mkdir=True):
     content = """#!/usr/bin/env bash
 preempted=$(\
@@ -89,7 +88,6 @@ echo "{{\\"date\\": \\"$(date +%s)\\", \\"preempted\\": ${{preempted}}}}" \
     make_file(filename, content, mkdir)
 
 
-@make_file
 def make_service(filename=__SERVICE_FILE__, mkdir=True):
     content = """[Unit]
 Description = HTCondor pool manager for Google Cloud Platform
@@ -112,7 +110,6 @@ def rm_service(filename=__SERVICE_FILE__):
     rm_file(filename)
 
 
-@make_file
 def make_logrotate(filename=__LOGROTATE_FILE__, mkdir=True):
     content = """/var/log/gcpm.log {{
   missingok
