@@ -29,14 +29,16 @@ class Gcpm(object):
             if self.is_server:
                 self.config = "/etc/gcpm.yml"
             else:
-                self.config = expand("~/.config/gcpm/gcpm.yml")
+                self.config = "~/.config/gcpm/gcpm.yml"
         else:
-            self.config = expand(config)
+            self.config = config
+        self.config = expand(self.config)
 
         if self.is_server:
             config_dir = "/var/cache/gcpm"
         else:
             config_dir = "~/.config/gcpm"
+        config_dir = expand(config_dir)
 
         self.data = {
             "config_dir": config_dir,
@@ -110,10 +112,13 @@ class Gcpm(object):
 
     def read_config(self):
         yaml = ruamel.yaml.YAML()
-        with open(expand(self.config)) as stream:
-            data = yaml.load(stream)
-        for k, v in data.items():
-            self.data[k] = v
+        if not os.path.isfile(self.config):
+            print("GCPM setting file: %s does not exist" % self.config)
+        else:
+            with open(self.config) as stream:
+                data = yaml.load(stream)
+            for k, v in data.items():
+                self.data[k] = v
 
         self.prefix_core = {}
         for machine in self.data["machines"]:

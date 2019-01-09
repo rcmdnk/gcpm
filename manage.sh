@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-commands=(test version)
+commands=(test version pypi testpypi)
 usage="Usage: $0 <command>
   commands: ${commands[*]}"
 
@@ -15,5 +15,7 @@ version_update () {
 case $1 in
   test)poetry run pytest -v --cov=./src --cov-report=html;;
   version)version_update;;
+  pypi)poetry publish --build ;;
+  testpypi)poetry publish -r testpypi --build ;;
   *)echo "$usage";exit 1;;
 esac
