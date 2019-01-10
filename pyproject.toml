@@ -2,8 +2,8 @@
 name = "gcpm"
 version = "0.1.2"
 description = "Google Cloud Platform Condor Pool Manager"
-repository = "https://github.com/mickaneda/gcp_condor_pool_manager"
-homepage = "https://github.com/mickaneda/gcp_condor_pool_manager"
+repository = "https://github.com/mickaneda/gcpm"
+homepage = "https://github.com/mickaneda/gcpm"
 authors = ["Michiru Kaneda <Michiru.Kaneda@gmail.com>"]
 readme = "README.md"
 license = "Apache-2.0"

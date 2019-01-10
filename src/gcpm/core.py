@@ -132,15 +132,17 @@ class Gcpm(object):
             self.data["bucket"] = self.data["project"] + "_" + "gcpm_bucket"
         if self.data["head"] == "":
             if self.data["head_info"] == "hostname":
-                self.data["head"] = os.environ["HOSTNAME"]
-            elif self.data["head_info"] == "hostname":
-                self.data["head"] = os.environ["IP"]
-            elif self.data["head_info"] != "hostname":
+                self.data["head"] = os.uname()[1]
+            elif self.data["head_info"] == "ip":
                 import socket
                 self.data["head"] = socket.gethostbyname(socket.gethostname())
+            elif self.data["head_info"] == "gcp":
+                self.data["head"] = os.uname()[1]
             else:
                 raise ValueError("Both %s and %s are empty"
                                  % ("head", "head_info"))
+        if self.data["domain"] == "":
+            self.data["domain"] = ".".join(os.uname()[1].split(".")[1:])
         if self.data["wait_cmd"] == 1:
             self.n_wait = 100
 
