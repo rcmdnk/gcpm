@@ -18,7 +18,7 @@ To install as service, do:
 
     $ gcpm install
 
-:note: Service installation is valid only for the system managed by **Systemd**.
+:warning: Service installation is valid only for the system managed by **Systemd**.
 
 If **logrotate** is installed, logrotation definition for **/var/log/gcpm.log** is also installed.
 
