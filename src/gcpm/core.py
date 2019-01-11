@@ -15,8 +15,7 @@ from .__init__ import __program__
 from .utils import expand
 from .files import make_startup_script, make_shutdown_script, make_service,\
     make_logrotate, rm_service, rm_logrotate
-from .condor import condor_status, condor_config_val, condor_reconfig, \
-    condor_wn, condor_wn_status, condor_idle_jobs
+from .condor import Condor
 from .gce import Gce
 from .gcs import Gcs
 
@@ -24,7 +23,7 @@ from .gcs import Gcs
 class Gcpm(object):
     """HTCondor pool manager for Google Cloud Platform."""
 
-    def __init__(self, config="", service=False):
+    def __init__(self, config="", service=False, test=False):
         self.logger = None
         self.is_service = service
         if config == "":
@@ -101,6 +100,9 @@ class Gcpm(object):
         self.wn_deleting = []
         self.full_wns = []
         self.total_core_use = []
+
+        self.test = test
+        self.condor = Condor(test=self.test)
 
     @staticmethod
     def help():
@@ -222,7 +224,7 @@ class Gcpm(object):
         return self.gcs
 
     def check_condor_status(self):
-        if condor_status()[0] != 0:
+        if self.condor.condor_status()[0] != 0:
             self.logger.error("HTCondor is not running!")
             raise
 
@@ -264,7 +266,7 @@ class Gcpm(object):
     def add_remaining_wns(self):
         # Check instance which is not running, but in condor_status
         # (should be in the list until it is removed from the status)
-        for wn in condor_wn():
+        for wn in self.condor.condor_wn():
             if wn not in self.wns:
                 if wn in self.prev_wns:
                     self.wns[wn] = self.prev_wns[wn]
@@ -281,8 +283,9 @@ class Gcpm(object):
                 % (ip, ip)
 
     def update_condor_collector(self):
-        condor_config_val(["-collector", "-set" "'WNS = %s'" % self.wn_list])
-        condor_reconfig(["-collector"])
+        self.condor.condor_config_val(["-collector",
+                                       "-set" "'WNS = %s'" % self.wn_list])
+        self.condor.condor_reconfig(["-collector"])
 
     def clean_wns(self):
         for wn in self.wn_starting:
@@ -335,7 +338,7 @@ class Gcpm(object):
 
     def update_wns(self):
         self.instances_gce = self.get_gce().get_instances(update=True)
-        self.condor_wns = condor_wn()
+        self.condor_wns = self.condor.condor_wn()
 
         self.prev_wns = self.wns
         self.wns = {}
@@ -453,8 +456,8 @@ class Gcpm(object):
         return created
 
     def prepare_wns_wrapper(self):
-        idle_jobs = condor_idle_jobs()
-        wn_status = condor_wn_status()
+        idle_jobs = self.condor.condor_idle_jobs()
+        wn_status = self.condor.condor_wn_status()
         while True:
             if not self.prepare_wns(idle_jobs, wn_status):
                 break
@@ -466,9 +469,11 @@ class Gcpm(object):
         self.prepare_wns_wrapper()
         sleep(self.data["interval"])
 
-    def run(self):
+    def run(self, oneshot=False):
         self.logger.info("Starting")
         self.show_config()
         while True:
             self.logger.debug("loop top")
             self.series()
+            if oneshot:
+                break

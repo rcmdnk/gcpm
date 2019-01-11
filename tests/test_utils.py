@@ -7,6 +7,6 @@ def test_expand():
 
 
 def test_proc():
-    (ret, stdout, stderr) = utils.proc(["hostname"])
+    (ret, stdout, stderr) = utils.proc(["pwd"])
     assert ret == 0
-    assert stdout == os.environ["HOSTNAME"]
+    assert stdout.strip() == os.getcwd()

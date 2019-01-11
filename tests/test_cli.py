@@ -31,6 +31,7 @@ def test_version():
     assert True
 
 
+@pytest.mark.skip
 def test_install():
     sys.argv = ["gcpm", "install"]
     cli()
@@ -38,6 +39,7 @@ def test_install():
     assert True
 
 
+@pytest.mark.skip
 def test_uninstall():
     sys.argv = ["gcpm", "uninstall"]
     cli()
