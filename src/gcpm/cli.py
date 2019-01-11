@@ -18,6 +18,9 @@ class CliObject(object):
     def help(self):
         Gcpm.help()
 
+    def version(self):
+        Gcpm.version()
+
     def show_config(self):
         Gcpm(config=self.config).show_config()
 

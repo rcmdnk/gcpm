@@ -10,6 +10,8 @@ import logging
 import copy
 import ruamel.yaml
 from time import sleep
+from .__init__ import __version__
+from .__init__ import __program__
 from .utils import expand
 from .files import make_startup_script, make_shutdown_script, make_service,\
     make_logrotate, rm_service, rm_logrotate
@@ -104,6 +106,10 @@ class Gcpm(object):
     def help():
         print("""
 """)
+
+    @staticmethod
+    def version():
+        print("%s: %s" % (__program__, __version__))
 
     def check_config(self):
         return True
@@ -457,6 +463,7 @@ class Gcpm(object):
         sleep(self.data["interval"])
 
     def run(self):
+        self.logger.info("Starting")
         self.show_config()
         while True:
             self.logger.debug("loop top")

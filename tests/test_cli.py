@@ -24,6 +24,13 @@ def test_help():
     assert True
 
 
+def test_version():
+    sys.argv = ["gcpm", "version"]
+    cli()
+    sys.argv = __ORIG_ARGV__
+    assert True
+
+
 def test_install():
     sys.argv = ["gcpm", "install"]
     cli()
