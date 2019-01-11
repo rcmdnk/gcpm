@@ -23,11 +23,11 @@ class CliObject(object):
 
     def install(self):
         """Install service related files."""
-        Gcpm(config=self.config).install()
+        Gcpm(config=self.config, service=True).install()
 
     def uninstall(self):
         """Uninstall service related files."""
-        Gcpm(config=self.config).uninstall()
+        Gcpm(config=self.config, service=True).uninstall()
 
     def run(self):
         """Main function to run the loop."""
