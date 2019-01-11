@@ -94,7 +94,7 @@ Description = HTCondor pool manager for Google Cloud Platform
 
 [Service]
 Environment = "PATH={path}"
-ExecStart = gcpm service
+ExecStart = /usr/bin/gcpm service
 ExecStop = /usr/bin/kill -p $MAINPID
 Restart = always
 StandardOutput = syslog
