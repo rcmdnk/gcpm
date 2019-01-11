@@ -12,7 +12,7 @@ import fire
 class CliObject(object):
     """HTCondor pool manager for Google Cloud Platform."""
 
-    def __init__(self, config="~/.config/gcpm/gcpm.yml"):
+    def __init__(self, config=""):
         self.config = config
 
     def help(self):
