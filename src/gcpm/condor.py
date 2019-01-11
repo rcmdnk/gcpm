@@ -46,20 +46,20 @@ def condor_wn_exist(wn_name):
 
 
 def condor_wn_status():
-    status = condor_status("-autoformat", "Name", "status")[1]
-    status = {}
-    for line in status.splitlines():
+    status_ret = condor_status(["-autoformat", "Name", "State"])[1]
+    status_dict = {}
+    for line in status_ret.splitlines():
         name, status = line.split()
         name = name.split(".")[0]
         if "@" in name:
             name = name.split("@")[1]
-        status[name] = status
-    return status
+        status_dict[name] = status
+    return status_dict
 
 
 def condor_idle_jobs():
-    qinfo = condor_q("-allusers", "-global", "-autoformat", "JobStatus",
-                     "RequestCpus")[1]
+    qinfo = condor_q(["-allusers", "-global", "-autoformat", "JobStatus",
+                      "RequestCpus"])[1]
     idle_jobs = {}
     for line in qinfo.splitlines():
         status, core = line.split()

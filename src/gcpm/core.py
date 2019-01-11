@@ -226,9 +226,11 @@ class Gcpm(object):
             self.logger.error("HTCondor is not running!")
             raise
 
-    def get_instances_wns(self):
+    def get_instances_wns(self, update=True):
+        if update:
+            self.instances_gce = self.get_gce().get_instances(update=True)
         instances = {}
-        for instance, info in self.get_instances_wns():
+        for instance, info in self.instances_gce.items():
             is_use = 0
             for core, prefix in self.prefix_core.items():
                 if instance.startswith(prefix):
@@ -238,24 +240,25 @@ class Gcpm(object):
                 instances[instance] = info
         return instances
 
-    def get_instances_running(self):
-        return {x: y for x, y in self.get_instances_wns()
+    def get_instances_running(self, update=True):
+        return {x: y for x, y in self.get_instances_wns(update=update).items()
                 if y["status"] == "RUNNING"}
 
-    def get_instances_non_terminated(self):
-        return {x: y for x, y in self.get_instances_wns()
+    def get_instances_non_terminated(self, update=True):
+        return {x: y for x, y in self.get_instances_wns(update=update).items()
                 if y["status"] != "TERMINATED"}
 
-    def get_instances_terminated(self):
-        return {x: y for x, y in self.get_instances_wns()
+    def get_instances_terminated(self, update=True):
+        return {x: y for x, y in self.get_instances_wns(update=update).items()
                 if y["status"] == "TERMINATED"}
 
-    def add_gce_wns(self):
-        for instance, info in self.get_instances_running():
+    def add_gce_wns(self, update=True):
+        for instance, info in \
+                self.get_instances_running(update=update).items():
             if self.data["head_info"] == "gcp":
-                ip = info["networkIP"]
+                ip = info["networkInterfaces"][0]["networkIP"]
             else:
-                ip = info["natIP"]
+                ip = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
             self.wns[instance] = ip
 
     def add_remaining_wns(self):
@@ -278,8 +281,8 @@ class Gcpm(object):
                 % (ip, ip)
 
     def update_condor_collector(self):
-        condor_config_val("-collector", "-set" "'WNS = %s'" % self.wn_list)
-        condor_reconfig("-collector")
+        condor_config_val(["-collector", "-set" "'WNS = %s'" % self.wn_list])
+        condor_reconfig(["-collector"])
 
     def clean_wns(self):
         for wn in self.wn_starting:
@@ -288,7 +291,7 @@ class Gcpm(object):
 
         exist_list = self.wns.keys() + self.wn_starting + self.wn_deleting
         instances = []
-        for instance, info in self.get_instances_wns():
+        for instance, info in self.instances_gce.items():
             if info["status"] == "TERMINATED":
                 continue
             instances.append(instance)
@@ -325,7 +328,7 @@ class Gcpm(object):
 
         self.total_core_use = 0
         for wn in self.full_wns:
-            for core, prefix in self.prefix_core:
+            for core, prefix in self.prefix_core.items():
                 if wn.startswith(prefix):
                     self.total_core_use += core
                     break
@@ -399,7 +402,7 @@ class Gcpm(object):
         option = {
             "name": instance_name,
             "machineType": "custom-%d-%d" % (machine["core"], memory),
-            "tags": {"items": self.data["network_tags"]},
+            "tags": {"items": self.data["network_tag"]},
             "disks": [
                 {
                     "boot": True,
@@ -423,7 +426,7 @@ class Gcpm(object):
         }
 
         self.wn_starting.append(instance_name)
-        self.get_gce().create_instance(intance=instance_name, option=option,
+        self.get_gce().create_instance(instance=instance_name, option=option,
                                        n_wait=self.n_wait, update=False)
 
     def prepare_wns(self, idle_jobs, wn_status):
@@ -432,7 +435,7 @@ class Gcpm(object):
             if not self.check_for_core(machine, idle_jobs, wn_status):
                 continue
 
-            if self.start_terminated():
+            if self.start_terminated(machine["core"]):
                 continue
 
             n = 1
@@ -440,6 +443,7 @@ class Gcpm(object):
                 instance_name = "%s-%04d" % (
                     self.prefix_core[machine["core"]], n)
                 if instance_name in self.full_wns:
+                    n += 1
                     continue
 
                 self.new_instance(instance_name, machine)
@@ -459,7 +463,7 @@ class Gcpm(object):
         self.check_condor_status()
         self.update_config()
         self.update_wns()
-        self.prepare_wns()
+        self.prepare_wns_wrapper()
         sleep(self.data["interval"])
 
     def run(self):
