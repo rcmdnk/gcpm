@@ -12,8 +12,10 @@ import fire
 class CliObject(object):
     """HTCondor pool manager for Google Cloud Platform."""
 
-    def __init__(self, config=""):
+    def __init__(self, config="", test=False, oneshot=False):
         self.config = config
+        self.test = test
+        self.oneshot = oneshot
 
     def help(self):
         Gcpm.help()
@@ -34,11 +36,11 @@ class CliObject(object):
 
     def run(self):
         """Main function to run the loop."""
-        Gcpm(config=self.config).run()
+        Gcpm(config=self.config, test=self.test).run(oneshot=self.oneshot)
 
     def service(self):
         """Run the loop as service."""
-        Gcpm(config=self.config, service=True).run()
+        Gcpm(config=self.config, test=self.test, service=True).run()
 
     def set_pool_password(self, pool_password):
         """Set pool_password file in google storage."""

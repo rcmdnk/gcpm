@@ -112,6 +112,7 @@ class Gce(object):
         return False
 
     def start_instance(self, instance, n_wait=-1, wait_time=-1, update=True):
+        self.logger.debug("Starting %s" % (instance))
         if not self.check_instance(instance, "TERMINATED", 1, 1, update):
             self.logger.warning("%s is not TERMINATED status (status=%s)" %
                                 (instance, self.instances[instance]["status"]))
@@ -122,6 +123,7 @@ class Gce(object):
         return self.check_instance(instance, "RUNNING", n_wait, wait_time)
 
     def stop_instance(self, instance, n_wait=-1, wait_time=-1, update=True):
+        self.logger.debug("Stopping %s" % (instance))
         if not self.check_instance(instance, "RUNNING", 1, 1, update):
             self.logger.warning("%s is not RUNNING status (status=%s)" %
                                 (instance, self.instances[instance]["status"]))
@@ -140,6 +142,7 @@ class Gce(object):
 
     def insert_instance(self, instance, n_wait=-1, wait_time=-1, option={},
                         update=True):
+        self.logger.debug("Inserting %s" % (instance))
         if self.check_instance(instance, "INSERTED", 1, 1, update):
             self.logger.warning("%s already exists" % instance)
             return False
@@ -195,6 +198,7 @@ class Gce(object):
                                     update)
 
     def delete_instance(self, instance, n_wait=-1, wait_time=-1, update=True):
+        self.logger.debug("Deleting %s" % (instance))
         if self.check_instance(instance, "DELETED", 1, 1, update):
             self.logger.warning("%s does not exist)" % instance)
             return False

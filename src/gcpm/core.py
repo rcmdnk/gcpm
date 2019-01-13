@@ -10,6 +10,7 @@ import logging
 import copy
 import ruamel.yaml
 from time import sleep
+from googleapiclient.errors import HttpError
 from .__init__ import __version__
 from .__init__ import __program__
 from .utils import expand
@@ -301,13 +302,18 @@ class Gcpm(object):
             # Delete condor_off instances
             if info["status"] == "RUNNING" and instance not in exist_list:
                 self.wn_deleting.append(instance)
-                if self.data["reuse"]:
-                    self.get_gce().stop_instance(instance, n_wait=self.n_wait,
-                                                 update=False)
-                else:
-                    self.get_gce().delete_instance(instance,
-                                                   n_wait=self.n_wait,
-                                                   update=False)
+                try:
+                    if self.data["reuse"]:
+                        self.get_gce().stop_instance(instance,
+                                                     n_wait=self.n_wait,
+                                                     update=False)
+                    else:
+                        self.get_gce().delete_instance(instance,
+                                                       n_wait=self.n_wait,
+                                                       update=False)
+                except HttpError as e:
+                    self.wn_deleting.remove(instance)
+                    self.logger.warning(e)
 
         for wn in self.wn_deleting:
             if wn not in instances:
@@ -320,8 +326,12 @@ class Gcpm(object):
             if instance in self.wn_starting + self.wn_deleting:
                 continue
             self.wn_deleting.append(instance)
-            self.get_gce().delete_instance(instance, n_wait=self.n_wait,
-                                           update=False)
+            try:
+                self.get_gce().delete_instance(instance, n_wait=self.n_wait,
+                                               update=False)
+            except HttpError as e:
+                self.wn_deleting.remove(instance)
+                self.logger.warning(e)
 
     def check_wns(self):
         self.check_terminated()
@@ -357,7 +367,7 @@ class Gcpm(object):
 
     def check_for_core(self, machine, idle_jobs, wn_status):
         core = machine["core"]
-        n_idle_jobs = idle_jobs[core]
+        n_idle_jobs = idle_jobs[core] if core in idle_jobs else 0
         machines = {x: y for x, y in wn_status.items()
                     if x.startswith.prefix_core[core]}
         n_machines = len(machines)
@@ -388,9 +398,14 @@ class Gcpm(object):
         for instance in self.get_instances_non_terminated():
             if instance.startswith(self.prefix_core[core]):
                 self.wn_starting.append(instance)
-                self.get_gce().start_instance(instance, n_wait=self.n_wait,
-                                              update=False)
+                try:
+                    self.get_gce().start_instance(instance, n_wait=self.n_wait,
+                                                  update=False)
+                except HttpError as e:
+                    self.wn_starting.remove(instance)
+                    self.logger.warning(e)
                 return True
+        return True
 
     def new_instance(self, instance_name, machine):
         startup = "%s/startup-%dcore.sh" % (self.data["config_dir"],
@@ -429,8 +444,13 @@ class Gcpm(object):
         }
 
         self.wn_starting.append(instance_name)
-        self.get_gce().create_instance(instance=instance_name, option=option,
-                                       n_wait=self.n_wait, update=False)
+        try:
+            self.get_gce().create_instance(instance=instance_name,
+                                           option=option, n_wait=self.n_wait,
+                                           update=False)
+        except HttpError as e:
+            self.wn_starting.remove(instance_name)
+            self.logger.warning(e)
 
     def prepare_wns(self, idle_jobs, wn_status):
         created = False

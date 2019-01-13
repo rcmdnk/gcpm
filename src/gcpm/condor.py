@@ -33,7 +33,7 @@ class Condor(object):
 
     def condor_wn(self):
         if self.test:
-            return (0, "gcp-test-wn-1core-0001\ngcp-wn-8core-0001", "")
+            return ["gcp-test-wn-1core-0001"]
         wn_candidates = self.condor_status(["-autoformat", "Name"])[1].split()
         wn_candidates = [x.split(".")[0] for x in wn_candidates]
         wn_candidates2 = []
@@ -54,11 +54,7 @@ class Condor(object):
     def condor_wn_status(self):
         status_ret = self.condor_status(["-autoformat", "Name", "State"])[1]
         if self.test:
-            return (
-                0,
-                "gcp-test-wn-1core-0001 Claimed\ngcp-wn-8core-0001 Claimed",
-                ""
-            )
+            {"gcp-test-wn-1core-0001": "Claimed"}
         status_dict = {}
         for line in status_ret.splitlines():
             name, status = line.split()
@@ -70,7 +66,7 @@ class Condor(object):
 
     def condor_idle_jobs(self):
         if self.test:
-            return (0, "1 1\n2 1\n1 8\n2 8", "")
+            return {1: 1}
         qinfo = self.condor_q(["-allusers", "-global", "-autoformat",
                                "JobStatus", "RequestCpus"])[1]
         idle_jobs = {}
