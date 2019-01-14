@@ -47,20 +47,20 @@ def test_uninstall():
     assert True
 
 
-@pytest.mark.skip
-def test_run():
-    sys.argv = ["gcpm", "run", "--config", "./tests/data/gcpm.yml"]
+def test_run(default_gcpm):
+    sys.argv = ["gcpm", "run", "--config", "./tests/data/gcpm.yml",
+                "--test", "True", "--oneshot", "True"]
     cli()
     sys.argv = __ORIG_ARGV__
-    assert True
+    assert default_gcpm.get_gce().delete_instance("gcp-test-wn-1core-0002")
 
 
 @pytest.mark.skip
-def test_service():
-    sys.argv = ["gcpm", "service", "--config", "./tests/data/gcpm.yml"]
+def test_service(default_gcpm):
+    sys.argv = ["gcpm", "service", "--test", "True", "--oneshot", "True"]
     cli()
     sys.argv = __ORIG_ARGV__
-    assert True
+    assert default_gcpm.get_gce().delete_instance("gcp-test-wn-1core-0002")
 
 
 def test_set_pool_password(default_gcpm):

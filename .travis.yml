@@ -33,7 +33,7 @@ install:
   - export PATH="$HOME/.poetry/bin:$PATH"
   - poetry install
 script:
-  - ./manage.sh test
+  - ./manage.sh debug
 after_script:
   - cd htmlcov
   - git init

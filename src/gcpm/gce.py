@@ -56,7 +56,7 @@ class Gce(object):
             except Exception:
                 info = None
         else:
-            if instance in self.instances.items():
+            if instance in self.instances:
                 info = self.instances[instance]
             else:
                 info = None

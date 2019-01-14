@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-commands=(test version pypi testpypi)
+commands=(test debug version pypi testpypi)
 usage="Usage: $0 <command>
   commands: ${commands[*]}"
 
@@ -14,6 +14,7 @@ version_update () {
 
 case $1 in
   test)poetry run pytest -v --cov=./src --cov-report=html;;
+  debug)poetry run pytest -o log_cli=true --log-cli-level=DEBU -v -s --cov=./src --cov-report=html
   version)version_update;;
   pypi)poetry publish --build ;;
   testpypi)poetry publish -r testpypi --build ;;

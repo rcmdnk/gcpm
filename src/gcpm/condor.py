@@ -46,15 +46,21 @@ class Condor(object):
         return wn_list
 
     def condor_wn_exist(self, wn_name):
+        if self.test:
+            if wn_name == "gcp-test-wn-1core-0001":
+                return True
+            else:
+                return False
+
         if wn_name in self.condor_wn():
             return True
         else:
             return False
 
     def condor_wn_status(self):
-        status_ret = self.condor_status(["-autoformat", "Name", "State"])[1]
         if self.test:
-            {"gcp-test-wn-1core-0001": "Claimed"}
+            return {"gcp-test-wn-1core-0001": "Claimed"}
+        status_ret = self.condor_status(["-autoformat", "Name", "State"])[1]
         status_dict = {}
         for line in status_ret.splitlines():
             name, status = line.split()
