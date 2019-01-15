@@ -14,9 +14,8 @@ from pprint import pformat
 from googleapiclient.errors import HttpError
 from .__init__ import __version__
 from .__init__ import __program__
-from .utils import expand
-from .files import make_startup_script, make_shutdown_script, make_service,\
-    make_logrotate, rm_service, rm_logrotate
+from .utils import expand, make_startup_script, make_shutdown_script
+from .files import make_service, make_logrotate, rm_service, rm_logrotate
 from .condor import Condor
 from .gce import Gce
 from .gcs import Gcs
@@ -71,6 +70,9 @@ class Gcpm(object):
             "log_file": None,
             "log_level": logging.INFO,
         }
+        self.startup_scripts = {}
+        self.shutdown_scripts = {}
+
         self.update_config()
 
         log_options = {
@@ -140,6 +142,8 @@ class Gcpm(object):
                     self.data["zone"].split("-")[0:2])
         if self.data["bucket"] == "":
             self.data["bucket"] = self.data["project"] + "_" + "gcpm_bucket"
+        if self.data["bucket"].startswith("gs://"):
+            self.data["bucket"] = self.data["bucket"].replace("gs://", "")
         if self.data["head"] == "":
             if self.data["head_info"] == "hostname":
                 self.data["head"] = os.uname()[1]
@@ -163,9 +167,7 @@ class Gcpm(object):
 
     def make_scripts(self):
         for machine in self.data["machines"]:
-            make_startup_script(
-                filename="%s/startup-%dcore.sh"
-                % (self.data["config_dir"], machine["core"]),
+            self.startup_scripts[machine["core"]] = make_startup_script(
                 core=machine["core"],
                 mem=machine["mem"],
                 disk=machine["disk"],
@@ -179,10 +181,7 @@ class Gcpm(object):
                 bucket=self.data["bucket"],
                 off_timer=self.data["off_timer"],
             )
-            make_shutdown_script(
-                filename="%s/shutdown-%dcore.sh"
-                % (self.data["config_dir"], machine["core"]),
-            )
+            self.shutdown_scripts[machine["core"]] = make_shutdown_script()
 
     def update_config(self):
         orig_data = copy.deepcopy(self.data)
@@ -290,16 +289,16 @@ class Gcpm(object):
         self.add_gce_wns(update=False)
         self.add_remaining_wns()
 
-        wn_list = ""
+        self.wn_list = ""
         for name, ip in self.wns.items():
-            wn_list += \
-                " $wns condor@$(UID_DOMAIN)/%s condor_pool@$(UID_DOMAIN)/%s" \
+            self.wn_list += \
+                " condor@$(UID_DOMAIN)/%s condor_pool@$(UID_DOMAIN)/%s" \
                 % (ip, ip)
 
     def update_condor_collector(self):
         self.make_wn_list()
-        self.condor.condor_config_val(["-collector",
-                                       "-set" "'WNS = %s'" % self.wn_list])
+        self.condor.condor_config_val(["-collector", "-set",
+                                       "WNS = %s" % self.wn_list])
         self.condor.condor_reconfig(["-collector"])
 
     def clean_wns(self):
@@ -421,10 +420,6 @@ class Gcpm(object):
         return True
 
     def new_instance(self, instance_name, machine):
-        startup = "%s/startup-%dcore.sh" % (self.data["config_dir"],
-                                            machine["core"])
-        shutdown = "%s/shutdown-%dcore.sh" % (self.data["config_dir"],
-                                              machine["core"])
         # memory must be N x 256 (MB)
         memory = int(machine["mem"]) / 256 * 256
         if memory < machine["mem"]:
@@ -447,13 +442,21 @@ class Gcpm(object):
             ],
             "metadata": {
                 "items": [
-                    {"key": "startup-script", "value": startup},
-                    {"key": "shutdown-script", "value": shutdown},
+                    {"key": "startup-script", "value": self.startup_scripts[machine["core"]]},
+                    {"key": "shutdown-script", "value": self.shutdown_scripts[machine["core"]]},
                 ]
             },
             "scheduling": {
                 "preemptible": bool(self.data["preemptible"])
-            }
+            },
+            "serviceAccounts": [{
+                "email": "default",
+                "scopes": [
+                    "https://www.googleapis.com/auth/devstorage.read_only",
+                    "https://www.googleapis.com/auth/logging.write",
+                    "https://www.googleapis.com/auth/monitoring.write",
+                ]
+            }],
         }
 
         self.wn_starting.append(instance_name)

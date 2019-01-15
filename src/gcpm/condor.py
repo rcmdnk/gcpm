@@ -76,6 +76,8 @@ class Condor(object):
         qinfo = self.condor_q(["-allusers", "-global", "-autoformat",
                                "JobStatus", "RequestCpus"])[1]
         idle_jobs = {}
+        if qinfo == "All queues are empty\n":
+            return idle_jobs
         for line in qinfo.splitlines():
             status, core = line.split()
             status = int(status)
