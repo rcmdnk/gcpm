@@ -132,11 +132,11 @@ class Gcpm(object):
                 config_dir = "/var/cache/gcpm"
             else:
                 config_dir = "~/.config/gcpm"
-            self.data["config"] = expand(config_dir)
+            self.data["config_dir"] = expand(config_dir)
         if self.data["oauth_file"] == "":
-            self.data["oauth_file"] == self.data["config_dir"] + "/oauth"
+            self.data["oauth_file"] = self.data["config_dir"] + "/oauth"
         if self.data["wn_list"] == "":
-            self.data["wn_list"] == self.data["config_dir"] + "/wn_list.json"
+            self.data["wn_list"] = self.data["config_dir"] + "/wn_list.json"
 
         self.prefix_core = {}
         for machine in self.data["machines"]:
