@@ -8,6 +8,7 @@
 import os
 import logging
 import copy
+import json
 import ruamel.yaml
 from time import sleep
 from pprint import pformat
@@ -15,7 +16,8 @@ from googleapiclient.errors import HttpError
 from .__init__ import __version__
 from .__init__ import __program__
 from .utils import expand, make_startup_script, make_shutdown_script
-from .files import make_service, make_logrotate, rm_service, rm_logrotate
+from .files import make_file, make_service, make_logrotate, rm_service,\
+    rm_logrotate
 from .condor import Condor
 from .gce import Gce
 from .gcs import Gcs
@@ -36,15 +38,10 @@ class Gcpm(object):
             self.config = config
         self.config = expand(self.config)
 
-        if self.is_service:
-            config_dir = "/var/cache/gcpm"
-        else:
-            config_dir = "~/.config/gcpm"
-        config_dir = expand(config_dir)
-
         self.data = {
-            "config_dir": config_dir,
-            "oauth_file": config_dir + "/oauth",
+            "config_dir": "",
+            "oauth_file": "",
+            "wn_list": "",
             "service_account_file": "",
             "project": "",
             "zone": "",
@@ -129,6 +126,17 @@ class Gcpm(object):
                 data = yaml.load(stream)
             for k, v in data.items():
                 self.data[k] = v
+
+        if self.data["config_dir"] == "":
+            if self.is_service:
+                config_dir = "/var/cache/gcpm"
+            else:
+                config_dir = "~/.config/gcpm"
+            self.data["config"] = expand(config_dir)
+        if self.data["oauth_file"] == "":
+            self.data["oauth_file"] == self.data["config_dir"] + "/oauth"
+        if self.data["wn_list"] == "":
+            self.data["wn_list"] == self.data["config_dir"] + "/wn_list.json"
 
         self.prefix_core = {}
         for machine in self.data["machines"]:
@@ -281,8 +289,11 @@ class Gcpm(object):
                         "but no information can be taken from gce" % (wn))
 
     def make_wn_list(self):
-        self.prev_wns = self.wns
         self.wns = {}
+        self.prev_wns = {}
+        if os.path.isfile(self.data["wn_list"]):
+            with open(self.data["wn_list"]) as f:
+                self.prev_wns = json.load(f)
 
         for s in self.data["static"]:
             self.wns[s] = s
@@ -294,6 +305,8 @@ class Gcpm(object):
             self.wn_list += \
                 " condor@$(UID_DOMAIN)/%s condor_pool@$(UID_DOMAIN)/%s" \
                 % (ip, ip)
+        make_file(filename=self.data["wn_list"], content=json.dumps(self.wns),
+                  mkdir=True)
 
     def update_condor_collector(self):
         self.make_wn_list()
