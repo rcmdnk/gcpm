@@ -423,8 +423,8 @@ which does not have HTCondor service.
                 self.logger.warning(e)
 
     def update_total_core_use(self):
-        working = self.get_instances_non_terminated(
-            update=False).keys() + self.wn_starting + self.wn_deleting
+        working = list(self.get_instances_non_terminated(update=False)) \
+            + self.wn_starting + self.wn_deleting
 
         self.total_core_use = 0
         for wn in working:
@@ -437,7 +437,7 @@ which does not have HTCondor service.
         self.check_terminated()
         self.update_total_core_use()
 
-        self.full_wns = self.instances_gce.keys() \
+        self.full_wns = list(self.instances_gce) \
             + self.wn_starting + self.wn_deleting + self.condor_wns
 
     def update_wns(self):
@@ -592,7 +592,7 @@ which does not have HTCondor service.
         self.check_required()
         self.update_wns()
         self.prepare_wns_wrapper()
-        self.logger.debug("instances:\n" + pformat(self.instances_gce.keys()))
+        self.logger.debug("instances:\n" + pformat(list(self.instances_gce)))
         self.logger.debug("condor_wns:\n" + pformat(self.condor_wns))
         self.logger.debug("wns:\n" + pformat(self.wns))
         self.logger.debug("wn_starting:\n" + pformat(self.wn_starting))
