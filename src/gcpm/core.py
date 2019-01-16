@@ -84,7 +84,6 @@ class Gcpm(object):
             log_options["level"] = int(self.data["log_level"])
         else:
             log_options["level"] = self.data["log_level"].upper()
-        log_options["level"] = "DEBUG"
         logging.basicConfig(**log_options)
         self.logger = logging.getLogger(__name__)
 
