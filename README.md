@@ -46,14 +46,21 @@ service_account_file | Service account JSON file for GCE/GCS usage.<br>If not sp
 project      | Google Cloud Platform Project Name.|-|Yes
 zone         | Zone for Google Compute Engine.|-|Yes
 machines     | Array of machine settings.<br>Each setting is array of [core, mem, disk, idle, image] (see below).|[]|Yes
-machines:core | Number of core of the machine type.|-|Yes
-machines:mem | Memory (MB) of the machine type.|-|Yes
-machines:disk | Disk size (GB) of the machine type.|-|Yes
-machines:max | Limit of the number of instances for the machine type.|-|Yes
-machines:idle | Number of idle machines for the machine type.|-|Yes
-machines:image | Image of the machine type.|-|Yes
+machines:core     | Number of core of the machine type.|-|Yes
+machines:mem      | Memory (MB) of the machine type.|-|Yes
+machines:disk     | Disk size (GB) of the machine type.|-|Yes
+machines:max      | Limit of the number of instances for the machine type.|-|Yes
+machines:idle     | Number of idle machines for the machine type.|-|Yes
+machines:image    | Image of the machine type.|-|Yes
+machines:<others> | Other any options can be defined for creating instance.|-|No
 max_cores    | Limit of the total number of cores of all instances.<br>If it is set 0, no limit is applied.|0|No
-static       | Array of instance names which should run always.|[]|No
+static_wns   | Array of instance names of static worker nodes, which are added as condor worker nodes.|[]|No
+required_machines          | Array of machines which should be running other than worker nodes.|[]|No
+required_machines:name     | Number of core of the machine type.|-|Yes
+required_machines:mem      | Memory (MB) of the machine type.|-|Yes
+required_machines:disk     | Disk size (GB) of the machine type.|-|Yes
+required_machines:image    | Image of the machine type.|-|Yes
+required_machines:<others> | Other any options can be defined for creating instance.|-|No
 prefix       | Prefix of machine names.|**gcp-wn**|No
 preemptible  | 1 for preemptible machines, 0 for not.|0|No
 off_timer    | Second to send condor_off after starting.|0|No

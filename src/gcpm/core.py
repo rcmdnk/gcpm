@@ -109,6 +109,28 @@ class Gcpm(object):
     @staticmethod
     def help():
         print("""
+Usage: gcpm [--config=<config>] [--test=<test>] [--oneshot=<oneshot>] <command>
+
+    commands:
+        run        : Run user process.
+        service    : Run service process.
+        set_pool_password <pool_password> : \
+Upload pool_password file to Google Cloud Storage.
+        install    : Install service (systemd) \
+and logrotate configuration file.
+        uninstall  : Uninstall service (systemd) \
+and logrotate configuration file.
+        show_config: Show configurations.
+        version    : Show version.
+        help       : Show this help.
+
+    options:
+        config  : Configuration file for gcpm.
+                  Default: ~/.config/gcpm/gcpm.yml for user process.
+                           /etc/gcpm.yml for service process.
+        oneshot : Set True to run only one loop.
+        test    : Set True to test on machines \
+which does not have HTCondor service.
 """)
 
     @staticmethod
