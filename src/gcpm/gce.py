@@ -160,24 +160,17 @@ class Gce(object):
             source_disk_image = self.get_source_disk_image(opt["family"],
                                                            project)
             del opt["family"]
-            if "disks" not in opt:
-                opt["disks"] = [{}]
-                opt["disks"][0] = {
-                    "boot": True,
-                    "autoDelete": True,
-                }
-            if "initializeParams" not in opt["disks"][0]:
-                opt["disks"][0]["initializeParams"] = {}
-            opt["disks"][0]["initializeParams"]["sourceImage"] =\
-                source_disk_image
-        if "networkInterfaces" not in opt:
-            opt["networkInterfaces"] = [{
-                "network": "global/networks/default",
-                "accessConfigs": [
-                    {"type": "ONE_TO_ONE_NAT", "name": "External NAT"}
-                ]
-            }]
         if "disks" not in opt:
+            opt["disks"] = [{}]
+            opt["disks"][0] = {
+                "boot": True,
+                "autoDelete": True,
+            }
+        if "initializeParams" not in opt["disks"][0]:
+            opt["disks"][0]["initializeParams"] = {}
+        opt["disks"][0]["initializeParams"]["sourceImage"] =\
+            source_disk_image
+        if "networkInterfaces" not in opt:
             opt["networkInterfaces"] = [{
                 "network": "global/networks/default",
                 "accessConfigs": [

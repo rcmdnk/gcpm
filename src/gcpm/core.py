@@ -502,12 +502,12 @@ which does not have HTCondor service.
             "machineType": "custom-%d-%d" % (machine["core"], memory),
             "disks": [
                 {
+                    "type": "PERSISTENT",
                     "boot": True,
                     "autoDelete": True,
                     "initializeParams": {
                         "diskSizeGb": machine["disk"],
-                        "sourceImage":
-                        "global/images/" + machine["image"]
+                        "sourceImage": "global/images/" + machine["image"],
                     }
                 }
             ],
@@ -534,9 +534,24 @@ which does not have HTCondor service.
             option["scheduling"] = {
                 "preemptible": bool(self.data["preemptible"])
             }
+        if "ssd" in machine:
+            ssd = machine["ssd"]
+            if type(ssd) is not list:
+                ssd = [ssd]
+            for s in ssd:
+                option["disks"].append({
+                    "type": "SCRATCH",
+                    "boot": True,
+                    "autoDelete": True,
+                    "interface":  s,
+                    "initializeParams": {
+                        "diskType": "zones/%s/diskTypes/local-ssd"
+                        % self.data["zone"]
+                    }
+                })
         for opt in machine:
-            if opt not in [
-                    "name", "core", "mem", "disk", "image", "max", "idle"]:
+            if opt not in ["name", "core", "mem", "disk", "image", "max",
+                           "idle", "ssd"]:
                 option[opt] = machine[opt]
 
         if is_wn:
