@@ -11,10 +11,14 @@ def expand(path):
 
 
 def proc(cmd):
+    import sys
     import subprocess
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
+    if sys.version_info.major > 2:
+        stdout = stdout.decode()
+        stderr = stderr.decode()
     return (p.returncode, stdout, stderr)
 
 
