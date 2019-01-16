@@ -27,6 +27,7 @@ class Gcpm(object):
     """HTCondor pool manager for Google Cloud Platform."""
 
     def __init__(self, config="", service=False, test=False):
+        self.first_update_config = 0
         self.logger = None
         self.is_service = service
         if config == "":
@@ -71,22 +72,6 @@ class Gcpm(object):
         self.startup_scripts = {}
         self.shutdown_scripts = {}
 
-        self.update_config()
-
-        log_options = {
-            "format": '%(asctime)s %(message)s',
-            "datefmt": '%b %d %H:%M:%S',
-        }
-        if self.data["log_file"] is not None:
-            log_options["filename"] = self.data["log_file"]
-        if type(self.data["log_level"]) is int\
-                or self.data["log_level"].isdigit():
-            log_options["level"] = int(self.data["log_level"])
-        else:
-            log_options["level"] = self.data["log_level"].upper()
-        logging.basicConfig(**log_options)
-        self.logger = logging.getLogger(__name__)
-
         self.services = {}
         self.gce = None
         self.gcs = None
@@ -104,6 +89,8 @@ class Gcpm(object):
 
         self.test = test
         self.condor = Condor(test=self.test)
+
+        self.update_config()
 
     @staticmethod
     def help():
@@ -194,6 +181,24 @@ which does not have HTCondor service.
         if self.data["wait_cmd"] == 1:
             self.n_wait = 100
 
+    def set_logger(self):
+        log_options = {
+            "format": '%(asctime)s %(message)s',
+            "datefmt": '%b %d %H:%M:%S',
+        }
+        if self.data["log_file"] is not None:
+            log_options["filename"] = self.data["log_file"]
+        if type(self.data["log_level"]) is int\
+                or self.data["log_level"].isdigit():
+            log_options["level"] = int(self.data["log_level"])
+        else:
+            log_options["level"] = self.data["log_level"].upper()
+
+        logging.basicConfig(**log_options)
+        self.logger = logging.getLogger(__name__)
+        if self.data["log_level"] not in ["debug", "DEBUG", 10, "10", 0, "0"]:
+            logging.getLogger("googleapiclient.discovery").setLevel("WARNING")
+
     def show_config(self):
         if self.logger is not None:
             self.logger.info(
@@ -217,17 +222,19 @@ which does not have HTCondor service.
             )
             self.shutdown_scripts[machine["core"]] = make_shutdown_script()
 
+    def after_update_config(self):
+        self.set_logger()
+        self.show_config()
+        self.make_scripts()
+
     def update_config(self):
         orig_data = copy.deepcopy(self.data)
         self.read_config()
         self.check_config()
-
-        if orig_data == self.data:
+        if self.first_update_config != 0 and orig_data == self.data:
             return
-
-        self.show_config()
-
-        self.make_scripts()
+        self.first_update_config = 1
+        self.after_update_config()
 
     def install(self):
         make_service()
@@ -593,7 +600,6 @@ which does not have HTCondor service.
 
     def run(self, oneshot=False):
         self.logger.info("Starting")
-        self.show_config()
         while True:
             try:
                 self.series()
