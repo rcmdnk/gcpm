@@ -485,10 +485,10 @@ class Gcpm(object):
             "serviceAccounts": [{
                 "email": "default",
                 "scopes": [
-                    "storage-ro",
-                    "logging-write",
-                    "monitoring-write",
-                    "trace",
+                    "https://www.googleapis.com/auth/devstorage.read_only",
+                    "https://www.googleapis.com/auth/logging.write",
+                    "https://www.googleapis.com/auth/monitoring.write",
+                    "https://www.googleapis.com/auth/trace.append",
                 ]
             }],
         }
@@ -518,7 +518,8 @@ class Gcpm(object):
                                                   n_wait=n_wait,
                                                   update=update)
         except HttpError as e:
-            self.wn_starting.remove(instance_name)
+            if is_wn:
+                self.wn_starting.remove(instance_name)
             self.logger.warning(e)
             return False
 
