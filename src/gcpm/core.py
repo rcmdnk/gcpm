@@ -84,7 +84,6 @@ class Gcpm(object):
         self.condor_wns = []
         self.wn_starting = []
         self.wn_deleting = []
-        self.full_wns = []
         self.total_core_use = []
 
         self.test = test
@@ -433,12 +432,13 @@ which does not have HTCondor service.
                     self.total_core_use += core
                     break
 
+    def get_full_wns(self):
+        return list(self.instances_gce) + self.wn_starting \
+            + self.wn_deleting + self.condor_wns
+
     def check_wns(self):
         self.check_terminated()
         self.update_total_core_use()
-
-        self.full_wns = list(self.instances_gce) \
-            + self.wn_starting + self.wn_deleting + self.condor_wns
 
     def update_wns(self):
         self.get_instances_wns(update=False)
@@ -549,8 +549,10 @@ which does not have HTCondor service.
         except HttpError as e:
             if is_wn:
                 self.wn_starting.remove(instance_name)
-            self.logger.warning(e)
-            return False
+            if e.resp.status == 409:
+                self.logger.warning(e)
+                return False
+            self.error(e.message, HttpError)
 
     def prepare_wns(self, idle_jobs, wn_status):
         created = False
@@ -565,7 +567,7 @@ which does not have HTCondor service.
             while n < 10000:
                 instance_name = "%s-%04d" % (
                     self.prefix_core[machine["core"]], n)
-                if instance_name in self.full_wns:
+                if instance_name in self.get_full_wns():
                     n += 1
                     continue
 
