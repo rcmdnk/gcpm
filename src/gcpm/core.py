@@ -492,8 +492,9 @@ which does not have HTCondor service.
     def new_instance(self, instance_name, machine, n_wait=0,
                      update=False, is_wn=True):
         # memory must be N x 256 (MB)
-        memory = int(machine["mem"]) / 256 * 256
-        if memory < machine["mem"]:
+        q, mod = divmod(machine["mem"], 256)
+        memory = q * 256
+        if mod != 0:
             memory += 256
 
         option = {
