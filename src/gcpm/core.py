@@ -10,7 +10,6 @@ import logging
 import copy
 import json
 import ruamel.yaml
-from Exception.OSError import ProcessLookupError, ChildProcessError
 from time import sleep
 from pprint import pformat
 from googleapiclient.errors import HttpError
@@ -241,7 +240,7 @@ class Gcpm(object):
 
     def check_condor_status(self):
         if self.condor.condor_status()[0] != 0:
-            self.error("HTCondor is not running!", ProcessLookupError)
+            self.error("HTCondor is not running!", RuntimeError)
 
     def check_required(self):
         for machine in self.data["required_machines"]:
@@ -252,18 +251,17 @@ class Gcpm(object):
                 elif status == "TERMINATED":
                     if not self.get_gce().start_instance(machine["name"],
                                                          n_wait=100,
-                                                         wait_time=10,
                                                          update=False):
                         self.error("Failed to start required machine: %s"
-                                   % machine["name"], ChildProcessError)
+                                   % machine["name"], RuntimeError)
                 else:
                     self.error("Required machine %s is unknown stat: %s"
-                               % (machine["name"], status), ChildProcessError)
+                               % (machine["name"], status), RuntimeError)
             else:
-                if not self.new_instance(machine["name"], machine, update=True,
-                                         is_wn=False):
+                if not self.new_instance(machine["name"], machine, n_wait=100,
+                                         update=True, is_wn=False):
                     self.error("Failed to create required machine: %s"
-                               % machine["name"], ChildProcessError)
+                               % machine["name"], RuntimeError)
 
     def get_instances_gce(self, update=True):
         if update:
@@ -463,7 +461,8 @@ class Gcpm(object):
                 return True
         return True
 
-    def new_instance(self, instance_name, machine, update=False, is_wn=True):
+    def new_instance(self, instance_name, machine, n_wait=0,
+                     update=False, is_wn=True):
         # memory must be N x 256 (MB)
         memory = int(machine["mem"]) / 256 * 256
         if memory < machine["mem"]:
@@ -486,9 +485,10 @@ class Gcpm(object):
             "serviceAccounts": [{
                 "email": "default",
                 "scopes": [
-                    "https://www.googleapis.com/auth/devstorage.read_only",
-                    "https://www.googleapis.com/auth/logging.write",
-                    "https://www.googleapis.com/auth/monitoring.write",
+                    "storage-ro",
+                    "logging-write",
+                    "monitoring-write",
+                    "trace",
                 ]
             }],
         }
@@ -515,7 +515,7 @@ class Gcpm(object):
         try:
             return self.get_gce().create_instance(instance=instance_name,
                                                   option=option,
-                                                  n_wait=self.n_wait,
+                                                  n_wait=n_wait,
                                                   update=update)
         except HttpError as e:
             self.wn_starting.remove(instance_name)
@@ -539,7 +539,7 @@ class Gcpm(object):
                     n += 1
                     continue
 
-                self.new_instance(instance_name, machine)
+                self.new_instance(instance_name, machine, n_wait=self.n_wait)
                 created = True
                 break
 
