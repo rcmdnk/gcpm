@@ -596,7 +596,10 @@ which does not have HTCondor service.
         self.logger.info("Starting")
         self.show_config()
         while True:
-            self.series()
-            if oneshot:
+            try:
+                self.series()
+                if oneshot:
+                    break
+                sleep(self.data["interval"])
+            except KeyboardInterrupt:
                 break
-            sleep(self.data["interval"])
