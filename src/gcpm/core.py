@@ -10,6 +10,7 @@ import logging
 import copy
 import json
 import ruamel.yaml
+from Exception.OSError import ProcessLookupError, ChildProcessError
 from time import sleep
 from pprint import pformat
 from googleapiclient.errors import HttpError
@@ -45,9 +46,10 @@ class Gcpm(object):
             "service_account_file": "",
             "project": "",
             "zone": "",
-            "machines": [],
             "max_cores": 0,
-            "static": [],
+            "machines": [],
+            "static_wns": [],
+            "required_machines": [],
             "prefix": "gcp-wn",
             "preemptible": 0,
             "off_timer": 0,
@@ -114,6 +116,10 @@ class Gcpm(object):
     def version():
         print("%s: %s" % (__program__, __version__))
 
+    def error(self, message, exception):
+        self.logger.error(message)
+        raise exception(message)
+
     def check_config(self):
         return True
 
@@ -161,8 +167,8 @@ class Gcpm(object):
             elif self.data["head_info"] == "gcp":
                 self.data["head"] = os.uname()[1]
             else:
-                raise ValueError("Both %s and %s are empty"
-                                 % ("head", "head_info"))
+                self.error("Both %s and %s are empty" % ("head", "head_info"),
+                           ValueError)
         if self.data["domain"] == "":
             self.data["domain"] = ".".join(os.uname()[1].split(".")[1:])
         if self.data["wait_cmd"] == 1:
@@ -235,12 +241,37 @@ class Gcpm(object):
 
     def check_condor_status(self):
         if self.condor.condor_status()[0] != 0:
-            self.logger.error("HTCondor is not running!")
-            raise
+            self.error("HTCondor is not running!", ProcessLookupError)
 
-    def get_instances_wns(self, update=True):
+    def check_required(self):
+        for machine in self.data["required_machines"]:
+            if machine["name"] in self.instances_gce:
+                status = self.instances_gce[machine["name"]]["status"]
+                if status == "RUNNING":
+                    continue
+                elif status == "TERMINATED":
+                    if not self.get_gce().start_instance(machine["name"],
+                                                         n_wait=100,
+                                                         wait_time=10,
+                                                         update=False):
+                        self.error("Failed to start required machine: %s"
+                                   % machine["name"], ChildProcessError)
+                else:
+                    self.error("Required machine %s is unknown stat: %s"
+                               % (machine["name"], status), ChildProcessError)
+            else:
+                if not self.new_instance(machine["name"], machine, update=True,
+                                         is_wn=False):
+                    self.error("Failed to create required machine: %s"
+                               % machine["name"], ChildProcessError)
+
+    def get_instances_gce(self, update=True):
         if update:
             self.instances_gce = self.get_gce().get_instances(update=True)
+        return self.instances_gce
+
+    def get_instances_wns(self, update=True):
+        self.get_instances_gce(update)
         instances = {}
         for instance, info in self.instances_gce.items():
             is_use = 0
@@ -248,7 +279,7 @@ class Gcpm(object):
                 if instance.startswith(prefix):
                     is_use = 1
                     break
-            for static in self.data["static"]:
+            for static in self.data["static_wns"]:
                 if instance == static:
                     is_use = 1
             if is_use:
@@ -295,7 +326,7 @@ class Gcpm(object):
             with open(self.data["wn_list"]) as f:
                 self.prev_wns = json.load(f)
 
-        for s in self.data["static"]:
+        for s in self.data["static_wns"]:
             self.wns[s] = s
         self.add_gce_wns(update=False)
         self.add_remaining_wns()
@@ -384,7 +415,7 @@ class Gcpm(object):
             + self.wn_starting + self.wn_deleting + self.condor_wns
 
     def update_wns(self):
-        self.get_instances_wns(update=True)
+        self.get_instances_wns(update=False)
         self.condor_wns = self.condor.condor_wn()
         self.update_condor_collector()
         self.clean_wns()
@@ -432,7 +463,7 @@ class Gcpm(object):
                 return True
         return True
 
-    def new_instance(self, instance_name, machine):
+    def new_instance(self, instance_name, machine, update=False, is_wn=True):
         # memory must be N x 256 (MB)
         memory = int(machine["mem"]) / 256 * 256
         if memory < machine["mem"]:
@@ -441,7 +472,6 @@ class Gcpm(object):
         option = {
             "name": instance_name,
             "machineType": "custom-%d-%d" % (machine["core"], memory),
-            "tags": {"items": self.data["network_tag"]},
             "disks": [
                 {
                     "boot": True,
@@ -453,15 +483,6 @@ class Gcpm(object):
                     }
                 }
             ],
-            "metadata": {
-                "items": [
-                    {"key": "startup-script", "value": self.startup_scripts[machine["core"]]},
-                    {"key": "shutdown-script", "value": self.shutdown_scripts[machine["core"]]},
-                ]
-            },
-            "scheduling": {
-                "preemptible": bool(self.data["preemptible"])
-            },
             "serviceAccounts": [{
                 "email": "default",
                 "scopes": [
@@ -471,15 +492,35 @@ class Gcpm(object):
                 ]
             }],
         }
+        if is_wn:
+            option["tags"] = {"items": self.data["network_tag"]}
+            option["metadata"] = {
+                "items": [
+                    {"key": "startup-script",
+                     "value": self.startup_scripts[machine["core"]]},
+                    {"key": "shutdown-script",
+                     "value": self.shutdown_scripts[machine["core"]]},
+                ]
+            }
+            option["scheduling"] = {
+                "preemptible": bool(self.data["preemptible"])
+            }
+        for opt in machine:
+            if opt not in [
+                    "name", "core", "mem", "disk", "image", "max", "idle"]:
+                option[opt] = machine[opt]
 
-        self.wn_starting.append(instance_name)
+        if is_wn:
+            self.wn_starting.append(instance_name)
         try:
-            self.get_gce().create_instance(instance=instance_name,
-                                           option=option, n_wait=self.n_wait,
-                                           update=False)
+            return self.get_gce().create_instance(instance=instance_name,
+                                                  option=option,
+                                                  n_wait=self.n_wait,
+                                                  update=update)
         except HttpError as e:
             self.wn_starting.remove(instance_name)
             self.logger.warning(e)
+            return False
 
     def prepare_wns(self, idle_jobs, wn_status):
         created = False
@@ -518,6 +559,8 @@ class Gcpm(object):
         self.logger.debug("series start")
         self.check_condor_status()
         self.update_config()
+        self.get_instances_gce(update=True)
+        self.check_required()
         self.update_wns()
         self.prepare_wns_wrapper()
         self.logger.debug("instances:\n" + pformat(self.instances_gce.keys()))
