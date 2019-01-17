@@ -323,14 +323,20 @@ which does not have HTCondor service.
         return {x: y for x, y in self.get_instances_wns(update=update).items()
                 if y["status"] == "TERMINATED"}
 
+    def get_gce_ip(self, instance, update=True):
+        if instance not in self.get_instances_running(update=update):
+            return instance
+        info = self.get_instances_running(update=False)[instance]
+        if self.data["head_info"] == "gcp":
+            ip = info["networkInterfaces"][0]["networkIP"]
+        else:
+            ip = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
+        return ip
+
     def add_gce_wns(self, update=True):
         for instance, info in \
                 self.get_instances_running(update=update).items():
-            if self.data["head_info"] == "gcp":
-                ip = info["networkInterfaces"][0]["networkIP"]
-            else:
-                ip = info["networkInterfaces"][0]["accessConfigs"][0]["natIP"]
-            self.wns[instance] = ip
+            self.wns[instance] = self.get_gce_ip(instance, update=False)
 
     def add_remaining_wns(self):
         # Check instance which is not running, but in condor_status
@@ -352,7 +358,8 @@ which does not have HTCondor service.
                 self.prev_wns = json.load(f)
 
         for s in self.data["static_wns"]:
-            self.wns[s] = s
+            self.wns[s] = self.get_gce_ip(s, update=False)
+
         self.add_gce_wns(update=False)
         self.add_remaining_wns()
 
@@ -370,13 +377,34 @@ which does not have HTCondor service.
                                        "WNS = %s" % self.wn_list])
         self.condor.condor_reconfig(["-collector"])
 
+    def stop_instance(self, instance):
+        self.wn_deleting.append(instance)
+        try:
+            self.get_gce().stop_instance(instance,
+                                         n_wait=self.n_wait,
+                                         update=False)
+        except HttpError as e:
+            self.wn_deleting.remove(instance)
+            self.logger.warning(e)
+
+    def delete_instance(self, instance):
+        self.wn_deleting.append(instance)
+        try:
+            self.get_gce().delete_instance(instance,
+                                           n_wait=self.n_wait,
+                                           update=False)
+        except HttpError as e:
+            self.wn_deleting.remove(instance)
+            self.logger.warning(e)
+
     def clean_wns(self):
         self.logger.debug("clean_wns")
         for wn in self.wn_starting:
             if wn in self.condor_wns:
                 self.wn_starting.remove(wn)
 
-        exist_list = self.condor_wns + self.wn_starting + self.wn_deleting
+        exist_list = self.data["static_wns"] + self.condor_wns \
+            + self.wn_starting + self.wn_deleting
         instances = []
 
         # Delete condor_off instances
@@ -388,19 +416,10 @@ which does not have HTCondor service.
                 continue
             if info["status"] not in ["RUNNING", "TERMINATED"]:
                 continue
-            self.wn_deleting.append(instance)
-            try:
-                if self.data["reuse"]:
-                    self.get_gce().stop_instance(instance,
-                                                 n_wait=self.n_wait,
-                                                 update=False)
-                else:
-                    self.get_gce().delete_instance(instance,
-                                                   n_wait=self.n_wait,
-                                                   update=False)
-            except HttpError as e:
-                self.wn_deleting.remove(instance)
-                self.logger.warning(e)
+            if self.data["reuse"]:
+                self.stop_instance(instance)
+            else:
+                self.delete_instance(instance)
 
         for wn in self.wn_deleting:
             if wn not in instances:
@@ -413,13 +432,7 @@ which does not have HTCondor service.
                 update=False).items():
             if instance in self.wn_starting + self.wn_deleting:
                 continue
-            self.wn_deleting.append(instance)
-            try:
-                self.get_gce().delete_instance(instance, n_wait=self.n_wait,
-                                               update=False)
-            except HttpError as e:
-                self.wn_deleting.remove(instance)
-                self.logger.warning(e)
+            self.delete_instance(instance)
 
     def update_total_core_use(self):
         working = list(self.get_instances_non_terminated(update=False)) \
