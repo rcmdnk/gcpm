@@ -70,20 +70,46 @@ class Condor(object):
             status_dict[name] = status
         return status_dict
 
-    def condor_idle_jobs(self):
+    def condor_idle_jobs(self, owners=[], exclude_owner=[]):
         if self.test:
-            return {1: 1}
+            if len(owners) == 0:
+                return {1: 1}
+            else:
+                return {1: 1}
         qinfo = self.condor_q(["-allusers", "-global", "-autoformat",
-                               "JobStatus", "RequestCpus"])[1]
-        idle_jobs = {}
+                               "JobStatus", "RequestCpus", "Owner"])[1]
+        full_idle_jobs = {}
+        selected_idle_jobs = {}
         if qinfo == "All queues are empty\n":
-            return idle_jobs
+            return [full_idle_jobs, selected_idle_jobs]
         for line in qinfo.splitlines():
-            status, core = line.split()
+            status, core, owner = line.split()
             status = int(status)
             core = int(core)
-            if status == 1:
-                if core not in idle_jobs:
-                    idle_jobs[core] = 0
-                idle_jobs[core] += 1
-        return idle_jobs
+            if status != 1:
+                continue
+            if core not in full_idle_jobs:
+                full_idle_jobs[core] = 0
+            full_idle_jobs[core] += 1
+            if len(owners) == 0 and len(exclude_owner) == 0:
+                continue
+            if len(owners) > 0:
+                is_owner = 0
+                for o in owners:
+                    if owner == o:
+                        is_owner = 1
+                        break
+                if is_owner == 0:
+                    continue
+            if len(exclude_owner) > 0:
+                is_owner = 1
+                for o in exclude_owner:
+                    if owner == o:
+                        is_owner = 0
+                        break
+                if is_owner == 0:
+                    continue
+            if core not in selected_idle_jobs:
+                selected_idle_jobs[core] = 0
+            selected_idle_jobs[core] += 1
+        return [full_idle_jobs, selected_idle_jobs]

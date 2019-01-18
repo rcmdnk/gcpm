@@ -23,7 +23,8 @@ def proc(cmd):
 
 
 def make_startup_script(core, mem, disk, image, preemptible, admin,
-                        head, port, domain, owner, bucket, off_timer=0):
+                        head, port, domain, owner, bucket, off_timer=0,
+                        slot_number=1):
     content = """#!/usr/bin/env bash
 echo "{{\\"date\\": \\"$(date +%s)\\", \\"core\\": {core},\\"mem\\": {mem}, \
 \\"disk\\": {disk}, \\"image\\": \\"{image}\\", \
@@ -40,6 +41,9 @@ sed -i"" "s/FIXME_PRIVATE_DOMAIN/$(hostname -d)/" \
 sed -i"" 's/FIXME_OWNER/{owner}/' /etc/condor/config.d/20_workernode.config
 sed -i"" 's/FIXME_CORE/{core}/' /etc/condor/config.d/20_workernode.config
 sed -i"" 's/FIXME_MEM/{mem}/' /etc/condor/config.d/20_workernode.config
+
+sed -i"" 's/FIXME_SLOT_NUMBER/{slot_number}/' \
+/etc/condor/config.d/20_workernode.config
 
 gsutil cp "gs://{bucket}/pool_password" /etc/condor/
 chmod 600 /etc/condor/pool_password

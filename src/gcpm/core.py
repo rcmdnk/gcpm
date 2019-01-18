@@ -50,7 +50,9 @@ class Gcpm(object):
             "machines": [],
             "static_wns": [],
             "required_machines": [],
+            "primary_accounts": [],
             "prefix": "gcp-wn",
+            "instance_max_num": 9999,
             "preemptible": 0,
             "off_timer": 0,
             "network_tag": [],
@@ -71,7 +73,11 @@ class Gcpm(object):
         }
         self.startup_scripts = {}
         self.shutdown_scripts = {}
+        self.test_startup_scripts = {}
+        self.test_shutdown_scripts = {}
 
+        self.prefix_core = {}
+        self.test_prefix_core = {}
         self.services = {}
         self.gce = None
         self.gcs = None
@@ -84,6 +90,9 @@ class Gcpm(object):
         self.condor_wns = []
         self.wn_starting = []
         self.wn_deleting = []
+        self.full_idle_jobs = {}
+        self.test_idle_jobs = {}
+        self.wn_status = {}
         self.total_core_use = []
 
         self.test = test
@@ -151,9 +160,12 @@ which does not have HTCondor service.
             self.data["wn_list"] = self.data["config_dir"] + "/wn_list.json"
 
         self.prefix_core = {}
+        self.test_prefix_core = {}
         for machine in self.data["machines"]:
             self.prefix_core[machine["core"]] = \
                 "%s-%dcore" % (self.data["prefix"], machine["core"])
+            self.test_prefix_core[machine["core"]] = \
+                "%s-test-%dcore" % (self.data["prefix"], machine["core"])
         if self.data["location"] == "":
             if self.data["storageClass"] == "MULTI_REGIONAL":
                 self.data["location"] = self.data["zone"].split("-")[0]
@@ -218,8 +230,26 @@ which does not have HTCondor service.
                 owner=self.data["owner"],
                 bucket=self.data["bucket"],
                 off_timer=self.data["off_timer"],
+                slot_number=1,
             )
             self.shutdown_scripts[machine["core"]] = make_shutdown_script()
+            self.test_startup_scripts[machine["core"]] = make_startup_script(
+                core=machine["core"],
+                mem=machine["mem"],
+                disk=machine["disk"],
+                image=machine["image"],
+                preemptible=self.data["preemptible"],
+                admin=self.data["admin"],
+                head=self.data["head"],
+                port=self.data["port"],
+                domain=self.data["domain"],
+                owner=self.data["owner"],
+                bucket=self.data["bucket"],
+                off_timer=self.data["off_timer"],
+                slot_number=2,
+            )
+            self.test_shutdown_scripts[machine["core"]] \
+                = make_shutdown_script()
 
     def after_update_config(self):
         self.set_logger()
@@ -300,7 +330,8 @@ which does not have HTCondor service.
         instances = {}
         for instance, info in self.instances_gce.items():
             is_use = 0
-            for core, prefix in self.prefix_core.items():
+            for core, prefix in self.prefix_core.items() \
+                    + self.test_prefix_core.items():
                 if instance.startswith(prefix):
                     is_use = 1
                     break
@@ -440,7 +471,8 @@ which does not have HTCondor service.
 
         self.total_core_use = 0
         for wn in working:
-            for core, prefix in self.prefix_core.items():
+            for core, prefix in self.prefix_core.items() \
+                    + self.test_prefix_core.items():
                 if wn.startswith(prefix):
                     self.total_core_use += core
                     break
@@ -460,10 +492,11 @@ which does not have HTCondor service.
         self.clean_wns()
         self.check_wns()
 
-    def check_for_core(self, machine, idle_jobs, wn_status):
+    def check_for_core(self, machine):
         core = machine["core"]
-        n_idle_jobs = idle_jobs[core] if core in idle_jobs else 0
-        machines = {x: y for x, y in wn_status.items()
+        n_idle_jobs = self.full_idle_jobs[core] \
+            if core in self.full_idle_jobs else 0
+        machines = {x: y for x, y in self.wn_status.items()
                     if x.startswith(self.prefix_core[core])}
         n_machines = len(machines)
         unclaimed = [x for x, y in machines.items() if y == "Unclaimed"]
@@ -499,6 +532,7 @@ which does not have HTCondor service.
                 except HttpError as e:
                     self.wn_starting.remove(instance)
                     self.logger.warning(e)
+                    return False
                 return True
         return True
 
@@ -582,18 +616,20 @@ which does not have HTCondor service.
                 return False
             self.error(e.message, HttpError)
 
-    def prepare_wns(self, idle_jobs, wn_status):
+    def prepare_wns(self):
         created = False
         for machine in self.data["machines"]:
-            if not self.check_for_core(machine, idle_jobs, wn_status):
+            if not self.check_for_core(machine):
                 continue
 
             if self.start_terminated(machine["core"]):
                 continue
 
             n = 1
-            while n < 10000:
-                instance_name = "%s-%04d" % (
+            while n < self.data["instance_max_num"]:
+                instance_name = ("%s-%0"
+                                 + len(str(self.data["instance_max_num"]))
+                                 + "d").format() % (
                     self.prefix_core[machine["core"]], n)
                 if instance_name in self.get_full_wns():
                     n += 1
@@ -605,14 +641,94 @@ which does not have HTCondor service.
 
         return created
 
+    def check_for_test_core(self, machine):
+        core = machine["core"]
+        if core not in self.test_idle_jobs[core] \
+                or self.test_idle_jobs[core] == 0:
+            return False
+
+        n_idle_jobs = self.full_idle_jobs[core] \
+            if core in self.full_idle_jobs else 0
+        machines = {x: y for x, y in self.wn_status.items()
+                    if x.startswith(self.prefix_core[core])}
+        machines += {x: y for x, y in self.wn_status.items()
+                     if x.startswith(self.test_prefix_core[core])}
+        n_machines = len(machines)
+        unclaimed = [x for x, y in machines.items() if y == "Unclaimed"]
+        n_unclaimed = len(unclaimed) - n_idle_jobs
+
+        for wn in self.wn_starting:
+            if wn.startswith(self.prefix_core[core]):
+                n_machines += 1
+                n_unclaimed += 1
+
+        if n_unclaimed >= 0:
+            return False
+
+        if self.data["max_cores"] > 0:
+            if self.total_core_use + core > self.data["max_cores"]:
+                return False
+
+        return True
+
+    def start_test_terminated(self, core):
+        if self.data["reuse"] != 1:
+            return False
+
+        for instance in self.get_instances_non_terminated(update=False):
+            if instance.startswith(self.prefix_core[core]) \
+                    or instance.startswith(self.test_prefix_core[core]):
+                self.wn_starting.append(instance)
+                try:
+                    self.get_gce().start_instance(instance, n_wait=self.n_wait,
+                                                  update=False)
+                except HttpError as e:
+                    self.wn_starting.remove(instance)
+                    self.logger.warning(e)
+                    return False
+                return True
+        return True
+
+    def prepare_test_wns(self):
+        created = False
+        for machine in self.data["machines"]:
+            if not self.check_for_test_core(machine):
+                continue
+
+            if self.start_test_terminated(machine["core"]):
+                continue
+
+            n = 1
+            while n < self.data["instance_max_num"]:
+                instance_name = ("%s-%0"
+                                 + len(str(self.data["instance_max_num"]))
+                                 + "d").format() % (
+                    self.test_prefix_core[machine["core"]], n)
+                if instance_name in self.get_full_wns():
+                    n += 1
+                    continue
+
+                self.new_instance(instance_name, machine, n_wait=self.n_wait)
+                self.test_idle_jobs[machine["core"]] -= 1
+                created = True
+                break
+
+        return created
+
     def prepare_wns_wrapper(self):
         self.logger.debug("prepare_wns_wrapper")
-        idle_jobs = self.condor.condor_idle_jobs()
-        wn_status = self.condor.condor_wn_status()
-        self.logger.debug("idle_jobs:" + pformat(idle_jobs))
-        self.logger.debug("wn_status:" + pformat(wn_status))
+        self.full_idle_jobs, test_idle_jobs = self.condor.condor_idle_jobs(
+            exclude_owner=self.data["primary_accounts"])
+        self.wn_status = self.condor.condor_wn_status()
+        self.logger.debug("full_idle_jobs:" + pformat(self.full_idle_jobs))
+        self.logger.debug("test_idle_jobs:" + pformat(
+            self.test_idle_jobs))
+        self.logger.debug("wn_status:" + pformat(self.wn_status))
         while True:
-            if not self.prepare_wns(idle_jobs, wn_status):
+            if not self.prepare_wns():
+                break
+        while True:
+            if not self.prepare_test_wns():
                 break
 
     def series(self):
