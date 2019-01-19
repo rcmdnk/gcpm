@@ -64,7 +64,7 @@ date >> /root/condor_started""".format(core=core, mem=mem, disk=disk,
                                        image=image, preemptible=preemptible,
                                        admin=admin, head=head, port=port,
                                        domain=domain, owner=owner,
-                                       bucket=bucket)
+                                       bucket=bucket, slot_number=slot_number)
 
     if off_timer != 0:
         content += """

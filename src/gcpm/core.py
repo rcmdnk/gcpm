@@ -628,7 +628,7 @@ which does not have HTCondor service.
             n = 1
             while n < self.data["instance_max_num"]:
                 instance_name = ("%s-%0"
-                                 + len(str(self.data["instance_max_num"]))
+                                 + str(len(str(self.data["instance_max_num"])))
                                  + "d").format() % (
                     self.prefix_core[machine["core"]], n)
                 if instance_name in self.get_full_wns():
