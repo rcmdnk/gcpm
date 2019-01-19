@@ -70,7 +70,7 @@ class Condor(object):
             status_dict[name] = status
         return status_dict
 
-    def condor_idle_jobs(self, owners=[], exclude_owner=[]):
+    def condor_idle_jobs(self, owners=[], exclude_owners=[]):
         if self.test:
             if len(owners) == 0:
                 return {1: 1}
@@ -91,20 +91,20 @@ class Condor(object):
             if core not in full_idle_jobs:
                 full_idle_jobs[core] = 0
             full_idle_jobs[core] += 1
-            if len(owners) == 0 and len(exclude_owner) == 0:
+            if len(owners) == 0 and len(exclude_owners) == 0:
                 continue
             if len(owners) > 0:
                 is_owner = 0
                 for o in owners:
-                    if owner == o:
+                    if owner.startswith(o):
                         is_owner = 1
                         break
                 if is_owner == 0:
                     continue
-            if len(exclude_owner) > 0:
+            if len(exclude_owners) > 0:
                 is_owner = 1
-                for o in exclude_owner:
-                    if owner == o:
+                for o in exclude_owners:
+                    if owner.startswith(o):
                         is_owner = 0
                         break
                 if is_owner == 0:

@@ -71,10 +71,8 @@ class Gcpm(object):
             "log_file": None,
             "log_level": logging.INFO,
         }
-        self.startup_scripts = {}
-        self.shutdown_scripts = {}
-        self.test_startup_scripts = {}
-        self.test_shutdown_scripts = {}
+        self.scripts = {"wn": {"startup": {}, "shutdown": {}},
+                        "test_wn": {"startup": {}, "shutdown": {}}}
 
         self.prefix_core = {}
         self.test_prefix_core = {}
@@ -217,38 +215,41 @@ which does not have HTCondor service.
 
     def make_scripts(self):
         for machine in self.data["machines"]:
-            self.startup_scripts[machine["core"]] = make_startup_script(
-                core=machine["core"],
-                mem=machine["mem"],
-                disk=machine["disk"],
-                image=machine["image"],
-                preemptible=self.data["preemptible"],
-                admin=self.data["admin"],
-                head=self.data["head"],
-                port=self.data["port"],
-                domain=self.data["domain"],
-                owner=self.data["owner"],
-                bucket=self.data["bucket"],
-                off_timer=self.data["off_timer"],
-                slot_number=1,
-            )
-            self.shutdown_scripts[machine["core"]] = make_shutdown_script()
-            self.test_startup_scripts[machine["core"]] = make_startup_script(
-                core=machine["core"],
-                mem=machine["mem"],
-                disk=machine["disk"],
-                image=machine["image"],
-                preemptible=self.data["preemptible"],
-                admin=self.data["admin"],
-                head=self.data["head"],
-                port=self.data["port"],
-                domain=self.data["domain"],
-                owner=self.data["owner"],
-                bucket=self.data["bucket"],
-                off_timer=self.data["off_timer"],
-                slot_number=2,
-            )
-            self.test_shutdown_scripts[machine["core"]] \
+            self.scripts["wn"]["startup"][machine["core"]] \
+                = make_startup_script(
+                    core=machine["core"],
+                    mem=machine["mem"],
+                    disk=machine["disk"],
+                    image=machine["image"],
+                    preemptible=self.data["preemptible"],
+                    admin=self.data["admin"],
+                    head=self.data["head"],
+                    port=self.data["port"],
+                    domain=self.data["domain"],
+                    owner=self.data["owner"],
+                    bucket=self.data["bucket"],
+                    off_timer=self.data["off_timer"],
+                    slot_number=1,
+                )
+            self.scripts["wn"]["shutdown"][machine["core"]] \
+                = make_shutdown_script()
+            self.scripts["test_wn"]["startup"][machine["core"]] \
+                = make_startup_script(
+                    core=machine["core"],
+                    mem=machine["mem"],
+                    disk=machine["disk"],
+                    image=machine["image"],
+                    preemptible=self.data["preemptible"],
+                    admin=self.data["admin"],
+                    head=self.data["head"],
+                    port=self.data["port"],
+                    domain=self.data["domain"],
+                    owner=self.data["owner"],
+                    bucket=self.data["bucket"],
+                    off_timer=self.data["off_timer"],
+                    slot_number=2,
+                )
+            self.scripts["test_wn"]["shutdown"][machine["core"]] \
                 = make_shutdown_script()
 
     def after_update_config(self):
@@ -316,7 +317,7 @@ which does not have HTCondor service.
                                % (machine["name"], status), RuntimeError)
             else:
                 if not self.new_instance(machine["name"], machine, n_wait=100,
-                                         update=True, is_wn=False):
+                                         update=True, wn_type=None):
                     self.error("Failed to create required machine: %s"
                                % machine["name"], RuntimeError)
 
@@ -537,7 +538,7 @@ which does not have HTCondor service.
         return True
 
     def new_instance(self, instance_name, machine, n_wait=0,
-                     update=False, is_wn=True):
+                     update=False, wn_type=None):
         # memory must be N x 256 (MB)
         q, mod = divmod(machine["mem"], 256)
         memory = q * 256
@@ -568,14 +569,16 @@ which does not have HTCondor service.
                 ]
             }],
         }
-        if is_wn:
+        if wn_type is not None:
             option["tags"] = {"items": self.data["network_tag"]}
             option["metadata"] = {
                 "items": [
                     {"key": "startup-script",
-                     "value": self.startup_scripts[machine["core"]]},
+                     "value":
+                     self.scripts[wn_type]["startup"][machine["core"]]},
                     {"key": "shutdown-script",
-                     "value": self.shutdown_scripts[machine["core"]]},
+                     "value":
+                     self.scripts[wn_type]["shutdown"][machine["core"]]},
                 ]
             }
             option["scheduling"] = {
@@ -601,7 +604,7 @@ which does not have HTCondor service.
                            "idle", "ssd"]:
                 option[opt] = machine[opt]
 
-        if is_wn:
+        if wn_type is not None:
             self.wn_starting.append(instance_name)
         try:
             return self.get_gce().create_instance(instance=instance_name,
@@ -609,7 +612,7 @@ which does not have HTCondor service.
                                                   n_wait=n_wait,
                                                   update=update)
         except HttpError as e:
-            if is_wn:
+            if instance_name in self.wn_starting:
                 self.wn_starting.remove(instance_name)
             if e.resp.status == 409:
                 self.logger.warning(e)
@@ -635,7 +638,8 @@ which does not have HTCondor service.
                     n += 1
                     continue
 
-                self.new_instance(instance_name, machine, n_wait=self.n_wait)
+                self.new_instance(instance_name, machine, n_wait=self.n_wait,
+                                  wn_type="wn")
                 created = True
                 break
 
@@ -651,8 +655,8 @@ which does not have HTCondor service.
             if core in self.full_idle_jobs else 0
         machines = {x: y for x, y in self.wn_status.items()
                     if x.startswith(self.prefix_core[core])}
-        machines += {x: y for x, y in self.wn_status.items()
-                     if x.startswith(self.test_prefix_core[core])}
+        machines.update({x: y for x, y in self.wn_status.items()
+                         if x.startswith(self.test_prefix_core[core])})
         n_machines = len(machines)
         unclaimed = [x for x, y in machines.items() if y == "Unclaimed"]
         n_unclaimed = len(unclaimed) - n_idle_jobs
@@ -701,14 +705,15 @@ which does not have HTCondor service.
             n = 1
             while n < self.data["instance_max_num"]:
                 instance_name = ("%s-%0"
-                                 + len(str(self.data["instance_max_num"]))
+                                 + str(len(str(self.data["instance_max_num"])))
                                  + "d").format() % (
                     self.test_prefix_core[machine["core"]], n)
                 if instance_name in self.get_full_wns():
                     n += 1
                     continue
 
-                self.new_instance(instance_name, machine, n_wait=self.n_wait)
+                self.new_instance(instance_name, machine, n_wait=self.n_wait,
+                                  wn_type="test_wn")
                 self.test_idle_jobs[machine["core"]] -= 1
                 created = True
                 break
@@ -717,8 +722,9 @@ which does not have HTCondor service.
 
     def prepare_wns_wrapper(self):
         self.logger.debug("prepare_wns_wrapper")
-        self.full_idle_jobs, test_idle_jobs = self.condor.condor_idle_jobs(
-            exclude_owner=self.data["primary_accounts"])
+        self.full_idle_jobs, self.test_idle_jobs \
+            = self.condor.condor_idle_jobs(
+                exclude_owners=self.data["primary_accounts"])
         self.wn_status = self.condor.condor_wn_status()
         self.logger.debug("full_idle_jobs:" + pformat(self.full_idle_jobs))
         self.logger.debug("test_idle_jobs:" + pformat(
