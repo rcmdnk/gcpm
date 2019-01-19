@@ -6,7 +6,7 @@
 
 
 import os
-from .utils import expand
+from .utils import expand, proc
 
 
 __SERVICE_FILE__ = "/usr/lib/systemd/system/gcpm.service"
@@ -48,6 +48,7 @@ SyslogIdentifier = gcpm
 [Install]
 WantedBy = multi-user.target""".format(path=os.environ["PATH"])
     make_file(filename, content, mkdir)
+    proc(["systemctl", "daemon-reload"])
 
 
 def rm_service(filename=__SERVICE_FILE__):

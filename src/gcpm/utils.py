@@ -12,7 +12,10 @@ def expand(path):
 
 def proc(cmd):
     import sys
+    import shlex
     import subprocess
+    if type(cmd) != list:
+        cmd = shlex.split(cmd)
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE,
                          stderr=subprocess.PIPE)
     stdout, stderr = p.communicate()
