@@ -643,7 +643,7 @@ which does not have HTCondor service.
 
     def check_for_test_core(self, machine):
         core = machine["core"]
-        if core not in self.test_idle_jobs[core] \
+        if core not in self.test_idle_jobs \
                 or self.test_idle_jobs[core] == 0:
             return False
 
