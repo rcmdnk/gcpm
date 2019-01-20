@@ -28,7 +28,7 @@ def proc(cmd):
 def make_startup_script(core, mem, disk, image, preemptible, admin,
                         head, port, domain, owner, bucket, off_timer=0,
                         wn_type=""):
-    if wn_type == "wn_test":
+    if wn_type == "test_wn":
         start = "IsPrimaryJob =!= True"
     else:
         start = "SlotID == 1"
