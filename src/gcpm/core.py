@@ -314,8 +314,8 @@ which does not have HTCondor service.
         instances = {}
         for instance, info in self.instances_gce.items():
             is_use = 0
-            for core, prefix in self.prefix_core.items() \
-                    + self.test_prefix_core.items():
+            for core, prefix in list(self.prefix_core.items()) \
+                    + list(self.test_prefix_core.items()):
                 if instance.startswith(prefix):
                     is_use = 1
                     break
@@ -455,8 +455,8 @@ which does not have HTCondor service.
 
         self.total_core_use = 0
         for wn in working:
-            for core, prefix in self.prefix_core.items() \
-                    + self.test_prefix_core.items():
+            for core, prefix in list(self.prefix_core.items()) \
+                    + list(self.test_prefix_core.items()):
                 if wn.startswith(prefix):
                     self.total_core_use += core
                     break
