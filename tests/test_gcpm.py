@@ -7,7 +7,7 @@ __TEST_INSTANCE__ = "gcpm-test-instance"
 
 @pytest.mark.version
 def test_version():
-    assert __version__ == '0.1.6'
+    assert __version__ == '0.2.0'
 
 
 @pytest.mark.config
