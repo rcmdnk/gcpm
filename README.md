@@ -61,6 +61,7 @@ required_machines:mem      | Memory (MB) of the machine type.|-|Yes
 required_machines:disk     | Disk size (GB) of the machine type.|-|Yes
 required_machines:image    | Image of the machine type.|-|Yes
 required_machines:&lt;others&gt; | Other any options can be defined for creating instance.|-|No
+primary_accounts |User accounts which jobs must run normal worker nodes. See below about primary accounts.|[]|No
 prefix       | Prefix of machine names.|**gcp-wn**|No
 preemptible  | 1 for preemptible machines, 0 for not.|0|No
 off_timer    | Second to send condor_off after starting.|0|No
@@ -79,3 +80,43 @@ storageClass | Storage class name of the bucket.|"REGIONAL"|No
 location     | Storage location for the bucket.<br>If empty, it is decided from the **zone**.|""|No
 log_file     | Log file path. Empty to put it in stdout.|""|No
 log_level    | Log level. (**debug**, **info**, **warning**, **error**, **critical**)|**info**|No
+
+
+Note:
+
+* Primary accounts
+
+If primary accounts are set, jobs of **non-primary** accounts can run on test worker nodes.
+
+If there are already max number of 1 core worker nodes
+and idle jobs of non-primary accounts are there,
+test worker node named **&lt;prefix&gt-test-1core-XXXX** will be launched
+and only non-primary account jobs can run on it.
+
+This able to run such a test job w/o waiting for finishing any normal jobs.
+
+Such test worker nodes can be launched until total cores are smaller than `max_core`.
+
+To use this function effectively, set total of `max` of each core to less than `max_core`.
+
+e.g.)
+
+```yml
+---
+machines:
+  core: 1
+  max: 10
+machines:
+  core: 8
+  max:  2
+max_core: 20
+primary_accounts:
+  - condor_primary
+```
+
+In this case, normal jobs can launch 10 1 core machines and 2 8 core machines,
+then 16 cores are used.
+
+Even if there are a log of idle **condor_primary**'s jobs,
+1 core test jobs by other accounts can run: 4 jobs at most.
+
