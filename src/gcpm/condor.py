@@ -72,10 +72,7 @@ class Condor(object):
 
     def condor_idle_jobs(self, owners=[], exclude_owners=[]):
         if self.test:
-            if len(owners) == 0:
-                return {1: 1}
-            else:
-                return {1: 1}
+            return [{1: 1}, {}]
         qinfo = self.condor_q(["-allusers", "-global", "-autoformat",
                                "JobStatus", "RequestCpus", "Owner"])[1]
         full_idle_jobs = {}
