@@ -214,43 +214,26 @@ which does not have HTCondor service.
                 "Configurations have been updated:\n" + pformat(self.data))
 
     def make_scripts(self):
-        for machine in self.data["machines"]:
-            self.scripts["wn"]["startup"][machine["core"]] \
-                = make_startup_script(
-                    core=machine["core"],
-                    mem=machine["mem"],
-                    disk=machine["disk"],
-                    image=machine["image"],
-                    preemptible=self.data["preemptible"],
-                    admin=self.data["admin"],
-                    head=self.data["head"],
-                    port=self.data["port"],
-                    domain=self.data["domain"],
-                    owner=self.data["owner"],
-                    bucket=self.data["bucket"],
-                    off_timer=self.data["off_timer"],
-                    slot_number=1,
-                )
-            self.scripts["wn"]["shutdown"][machine["core"]] \
-                = make_shutdown_script()
-            self.scripts["test_wn"]["startup"][machine["core"]] \
-                = make_startup_script(
-                    core=machine["core"],
-                    mem=machine["mem"],
-                    disk=machine["disk"],
-                    image=machine["image"],
-                    preemptible=self.data["preemptible"],
-                    admin=self.data["admin"],
-                    head=self.data["head"],
-                    port=self.data["port"],
-                    domain=self.data["domain"],
-                    owner=self.data["owner"],
-                    bucket=self.data["bucket"],
-                    off_timer=self.data["off_timer"],
-                    slot_number=2,
-                )
-            self.scripts["test_wn"]["shutdown"][machine["core"]] \
-                = make_shutdown_script()
+        for wn_type in self.scripts:
+            for machine in self.data["machines"]:
+                self.scripts[wn_type]["startup"][machine["core"]] \
+                    = make_startup_script(
+                        core=machine["core"],
+                        mem=machine["mem"],
+                        disk=machine["disk"],
+                        image=machine["image"],
+                        preemptible=self.data["preemptible"],
+                        admin=self.data["admin"],
+                        head=self.data["head"],
+                        port=self.data["port"],
+                        domain=self.data["domain"],
+                        owner=self.data["owner"],
+                        bucket=self.data["bucket"],
+                        off_timer=self.data["off_timer"],
+                        wn_type=wn_type
+                    )
+                self.scripts[wn_type]["shutdown"][machine["core"]] \
+                    = make_shutdown_script()
 
     def after_update_config(self):
         self.set_logger()
@@ -647,25 +630,34 @@ which does not have HTCondor service.
 
     def check_for_test_core(self, machine):
         core = machine["core"]
-        if core not in self.test_idle_jobs \
-                or self.test_idle_jobs[core] == 0:
+        n_test_idle_jobs = self.test_idle_jobs[core] \
+            if core in self.test_idle_jobs else 0
+        if n_test_idle_jobs == 0:
             return False
 
         n_idle_jobs = self.full_idle_jobs[core] \
             if core in self.full_idle_jobs else 0
-        machines = {x: y for x, y in self.wn_status.items()
-                    if x.startswith(self.prefix_core[core])}
-        machines.update({x: y for x, y in self.wn_status.items()
-                         if x.startswith(self.test_prefix_core[core])})
-        n_machines = len(machines)
-        unclaimed = [x for x, y in machines.items() if y == "Unclaimed"]
-        n_unclaimed = len(unclaimed) - n_idle_jobs
+        n_primary_idle_jobs = n_idle_jobs - n_test_idle_jobs
 
+        unclaimed = {x: y for x, y in self.wn_status.items()
+                     if x.startswith(self.prefix_core[core])
+                     and y == "Unclaimed"}
+        test_unclaimed = {x: y for x, y in self.wn_status.items()
+                          if x.startswith(self.test_prefix_core[core])
+                          and y == "Unclaimed"}
+        n_unclaimed = len(unclaimed)
         for wn in self.wn_starting:
-            if wn.startswith(self.prefix_core[core]) \
-                    or wn.startswith(self.test_prefix_core[core]):
-                n_machines += 1
+            if wn.startswith(self.prefix_core[core]):
                 n_unclaimed += 1
+        n_unclaimed -= n_primary_idle_jobs
+        if n_unclaimed < 0:
+            n_unclaimed = 0
+
+        n_unclaimed += len(test_unclaimed)
+        for wn in self.wn_starting:
+            if wn.startswith(self.test_prefix_core[core]):
+                n_unclaimed += 1
+        n_unclaimed -= n_test_idle_jobs
 
         if n_unclaimed >= 0:
             return False
