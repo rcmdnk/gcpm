@@ -707,7 +707,6 @@ which does not have HTCondor service.
 
                 self.new_instance(instance_name, machine, n_wait=self.n_wait,
                                   wn_type="test_wn")
-                self.test_idle_jobs[machine["core"]] -= 1
                 created = True
                 break
 
