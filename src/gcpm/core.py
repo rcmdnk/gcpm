@@ -662,7 +662,8 @@ which does not have HTCondor service.
         n_unclaimed = len(unclaimed) - n_idle_jobs
 
         for wn in self.wn_starting:
-            if wn.startswith(self.prefix_core[core]):
+            if wn.startswith(self.prefix_core[core]) \
+                    or wn.startswith(self.test_prefix_core[core]):
                 n_machines += 1
                 n_unclaimed += 1
 
