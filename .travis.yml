@@ -8,6 +8,9 @@ python:
   - "3.5"
   - "3.6"
   - "3.7-dev"
+branches:
+  except:
+    - /^v\d+\.\d+(\.\d+)?(-\S*)?$/
 env:
   global:
     - GIT_COMMITTER_NAME=mickaneda
