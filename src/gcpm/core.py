@@ -213,7 +213,7 @@ which does not have HTCondor service.
             logging.getLogger("googleapiclient.discovery").setLevel("WARNING")
         else:
             logging.getLogger("googleapiclient.discovery").setLevel(
-                self.data["log_level"))
+                self.data["log_level"])
 
     def show_config(self):
         if self.logger is not None:
