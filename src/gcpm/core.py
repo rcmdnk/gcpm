@@ -71,9 +71,11 @@ class Gcpm(object):
             "log_file": None,
             "log_level": logging.INFO,
         }
+        if self.is_service:
+            self.data["log_file"] = "/var/log/gcpm.log"
+
         self.scripts = {"wn": {"startup": {}, "shutdown": {}},
                         "test_wn": {"startup": {}, "shutdown": {}}}
-
         self.prefix_core = {}
         self.test_prefix_core = {}
         self.services = {}
@@ -129,10 +131,6 @@ which does not have HTCondor service.
     def version():
         print("%s: %s" % (__program__, __version__))
 
-    def error(self, message, exception):
-        self.logger.error(message)
-        raise exception(message)
-
     def check_config(self):
         return True
 
@@ -183,30 +181,39 @@ which does not have HTCondor service.
             elif self.data["head_info"] == "gcp":
                 self.data["head"] = os.uname()[1]
             else:
-                self.error("Both %s and %s are empty" % ("head", "head_info"),
-                           ValueError)
+                raise ValueError(
+                    "Both %s and %s are empty" % ("head", "head_info"))
         if self.data["domain"] == "":
             self.data["domain"] = ".".join(os.uname()[1].split(".")[1:])
         if self.data["wait_cmd"] == 1:
             self.n_wait = 100
 
-    def set_logger(self):
-        log_options = {
-            "format": '%(asctime)s %(message)s',
-            "datefmt": '%b %d %H:%M:%S',
-        }
-        if self.data["log_file"] is not None:
-            log_options["filename"] = self.data["log_file"]
-        if type(self.data["log_level"]) is int\
-                or self.data["log_level"].isdigit():
-            log_options["level"] = int(self.data["log_level"])
-        else:
-            log_options["level"] = self.data["log_level"].upper()
+        if self.data["log_level"].isdigit():
+            self.data["log_level"] = int(self.data["log_level"])
+        if type(self.data["log_level"]) is int:
+            self.data["log_level"] = logging.getLevelName(
+                self.data["log_level"])
+        self.data["log_level"] = self.data["log_level"].upper()
 
-        logging.basicConfig(**log_options)
-        self.logger = logging.getLogger(__name__)
-        if self.data["log_level"] not in ["debug", "DEBUG", 10, "10", 0, "0"]:
+    def set_logger(self):
+        if self.logger is None:
+            log_options = {
+                "format": '%(asctime)s %(message)s',
+                "datefmt": '%Y-%m-%d %H:%M:%S',
+            }
+            if self.data["log_file"] is not None:
+                log_options["filename"] = self.data["log_file"]
+            log_options["level"] = self.data["log_level"]
+
+            logging.basicConfig(**log_options)
+            self.logger = logging.getLogger(__name__)
+
+        self.logger.setLevel(self.data["log_level"])
+        if self.data["log_level"] not in ["NOTSET", "DEBUG"]:
             logging.getLogger("googleapiclient.discovery").setLevel("WARNING")
+        else:
+            logging.getLogger("googleapiclient.discovery").setLevel(
+                self.data["log_level"))
 
     def show_config(self):
         if self.logger is not None:
@@ -281,7 +288,7 @@ which does not have HTCondor service.
 
     def check_condor_status(self):
         if self.condor.condor_status()[0] != 0:
-            self.error("HTCondor is not running!", RuntimeError)
+            raise RuntimeError("HTCondor is not running!")
 
     def check_required(self):
         for machine in self.data["required_machines"]:
@@ -293,16 +300,19 @@ which does not have HTCondor service.
                     if not self.get_gce().start_instance(machine["name"],
                                                          n_wait=100,
                                                          update=False):
-                        self.error("Failed to start required machine: %s"
-                                   % machine["name"], RuntimeError)
+                        raise RuntimeError(
+                            "Failed to start required machine: %s"
+                            % machine["name"])
                 else:
-                    self.error("Required machine %s is unknown stat: %s"
-                               % (machine["name"], status), RuntimeError)
+                    raise RuntimeError(
+                        "Required machine %s is unknown stat: %s"
+                        % (machine["name"], status))
             else:
                 if not self.new_instance(machine["name"], machine, n_wait=100,
                                          update=True, wn_type=None):
-                    self.error("Failed to create required machine: %s"
-                               % machine["name"], RuntimeError)
+                    raise RuntimeError(
+                        "Failed to create required machine: %s"
+                        % machine["name"])
 
     def get_instances_gce(self, update=True):
         if update:
@@ -600,7 +610,7 @@ which does not have HTCondor service.
             if e.resp.status == 409:
                 self.logger.warning(e)
                 return False
-            self.error(e.message, HttpError)
+            raise HttpError(e.message)
 
     def prepare_wns(self):
         created = False
@@ -752,4 +762,7 @@ which does not have HTCondor service.
                     break
                 sleep(self.data["interval"])
             except KeyboardInterrupt:
+                break
+            except Exception as e:
+                self.logger.error(e)
                 break
