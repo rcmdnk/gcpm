@@ -41,8 +41,8 @@ Environment = "PATH={path}"
 ExecStart = /usr/bin/gcpm service
 ExecStop = /usr/bin/kill -p $MAINPID
 Restart = always
-StandardOutput = syslog
-StandardError = syslog
+StandardOutput = journal
+StandardError = journal
 SyslogIdentifier = gcpm
 
 [Install]
