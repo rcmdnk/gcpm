@@ -8,7 +8,7 @@ usage="Usage: $0 <command>
 version_update () {
   version=$(grep "^version" pyproject.toml | cut -d '"' -f2)
   echo "__version__ = \"$version\"" > ./src/gcpm/__version__.py
-  sed -i .bak "s/    assert __version__ == '.*'/    assert __version__ == '$version'/" tests/test_gcpm.py
+  sed -i.bak "s/    assert __version__ == '.*'/    assert __version__ == '$version'/" tests/test_gcpm.py
   rm -f tests/test_gcpm.py.bak
 }
 

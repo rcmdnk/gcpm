@@ -188,7 +188,8 @@ which does not have HTCondor service.
         if self.data["wait_cmd"] == 1:
             self.n_wait = 100
 
-        if self.data["log_level"].isdigit():
+        if type(self.data["log_level"]) is str \
+                and self.data["log_level"].isdigit():
             self.data["log_level"] = int(self.data["log_level"])
         if type(self.data["log_level"]) is int:
             self.data["log_level"] = logging.getLevelName(
