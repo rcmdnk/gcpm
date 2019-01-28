@@ -88,6 +88,7 @@ class Gcpm(object):
         self.prev_wns = {}
         self.wn_list = ""
         self.condor_wns = {}
+        self.condor_wns_exist = {}
         self.wn_starting = []
         self.wn_deleting = []
         self.full_idle_jobs = {}
@@ -366,6 +367,7 @@ which does not have HTCondor service.
     def add_remaining_wns(self):
         # Check instance which is not running, but in condor_status
         # (should be in the list until it is removed from the status)
+        self.condor_wns_exist = {}
         for wn in self.condor_wns:
             if wn not in self.wns:
                 if wn in self.prev_wns:
@@ -377,6 +379,8 @@ which does not have HTCondor service.
                     self.logger.warning(
                         "%s is listed in the condor status, "
                         "but no information can be taken from gce." % (wn))
+            else:
+                self.condor_wns_exist[wn] = self.condor_wns[wn]
 
     def make_wn_list(self):
         self.wns = {}
@@ -493,7 +497,7 @@ which does not have HTCondor service.
         core = machine["core"]
         n_idle_jobs = self.full_idle_jobs[core] \
             if core in self.full_idle_jobs else 0
-        machines = {x: y for x, y in self.condor_wns.items()
+        machines = {x: y for x, y in self.condor_wns_exist.items()
                     if x.startswith(self.prefix_core[core])}
         n_machines = len(machines)
         unclaimed = [x for x, y in machines.items() if y == "Unclaimed"]
@@ -652,10 +656,10 @@ which does not have HTCondor service.
             if core in self.full_idle_jobs else 0
         n_primary_idle_jobs = n_idle_jobs - n_test_idle_jobs
 
-        unclaimed = {x: y for x, y in self.condor_wns.items()
+        unclaimed = {x: y for x, y in self.condor_wns_exist.items()
                      if x.startswith(self.prefix_core[core])
                      and y == "Unclaimed"}
-        test_unclaimed = {x: y for x, y in self.condor_wns.items()
+        test_unclaimed = {x: y for x, y in self.condor_wns_exist.items()
                           if x.startswith(self.test_prefix_core[core])
                           and y == "Unclaimed"}
         n_unclaimed = len(unclaimed)
