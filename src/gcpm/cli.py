@@ -5,6 +5,7 @@
 """
 
 
+import sys
 from .core import Gcpm
 import fire
 
@@ -48,4 +49,7 @@ class CliObject(object):
 
 
 def cli():
-    fire.Fire(CliObject)
+    if len(sys.argv) <= 1:
+        Gcpm.help()
+    else:
+        fire.Fire(CliObject)
