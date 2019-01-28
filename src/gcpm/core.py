@@ -435,7 +435,7 @@ which does not have HTCondor service.
             if wn in self.condor_wns:
                 self.wn_starting.remove(wn)
 
-        exist_list = self.data["static_wns"] + self.condor_wns.keys() \
+        exist_list = self.data["static_wns"] + list(self.condor_wns) \
             + self.wn_starting + self.wn_deleting
         instances = []
 
@@ -480,7 +480,7 @@ which does not have HTCondor service.
 
     def get_full_wns(self):
         return list(self.instances_gce) + self.wn_starting \
-            + self.wn_deleting + self.condor_wns.keys()
+            + self.wn_deleting + list(self.condor_wns)
 
     def check_wns(self):
         self.check_terminated()
