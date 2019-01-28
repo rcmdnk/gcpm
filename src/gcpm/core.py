@@ -87,12 +87,11 @@ class Gcpm(object):
         self.wns = {}
         self.prev_wns = {}
         self.wn_list = ""
-        self.condor_wns = []
+        self.condor_wns = {}
         self.wn_starting = []
         self.wn_deleting = []
         self.full_idle_jobs = {}
         self.test_idle_jobs = {}
-        self.wn_status = {}
         self.total_core_use = []
 
         self.test = test
@@ -371,10 +370,13 @@ which does not have HTCondor service.
             if wn not in self.wns:
                 if wn in self.prev_wns:
                     self.wns[wn] = self.prev_wns[wn]
+                    self.logger.debug(
+                        "%s is listed in the condor status, "
+                        "but instance does not exist, maybe being deleted." % (wn))
                 else:
                     self.logger.warning(
                         "%s is listed in the condor status, "
-                        "but no information can be taken from gce" % (wn))
+                        "but no information can be taken from gce." % (wn))
 
     def make_wn_list(self):
         self.wns = {}
@@ -429,7 +431,7 @@ which does not have HTCondor service.
             if wn in self.condor_wns:
                 self.wn_starting.remove(wn)
 
-        exist_list = self.data["static_wns"] + self.condor_wns \
+        exist_list = self.data["static_wns"] + self.condor_wns.keys() \
             + self.wn_starting + self.wn_deleting
         instances = []
 
@@ -474,7 +476,7 @@ which does not have HTCondor service.
 
     def get_full_wns(self):
         return list(self.instances_gce) + self.wn_starting \
-            + self.wn_deleting + self.condor_wns
+            + self.wn_deleting + self.condor_wns.keys()
 
     def check_wns(self):
         self.check_terminated()
@@ -482,7 +484,7 @@ which does not have HTCondor service.
 
     def update_wns(self):
         self.get_instances_wns(update=False)
-        self.condor_wns = self.condor.condor_wn()
+        self.condor_wns = self.condor.condor_wn_status()
         self.update_condor_collector()
         self.clean_wns()
         self.check_wns()
@@ -491,7 +493,7 @@ which does not have HTCondor service.
         core = machine["core"]
         n_idle_jobs = self.full_idle_jobs[core] \
             if core in self.full_idle_jobs else 0
-        machines = {x: y for x, y in self.wn_status.items()
+        machines = {x: y for x, y in self.condor_wns.items()
                     if x.startswith(self.prefix_core[core])}
         n_machines = len(machines)
         unclaimed = [x for x, y in machines.items() if y == "Unclaimed"]
@@ -650,10 +652,10 @@ which does not have HTCondor service.
             if core in self.full_idle_jobs else 0
         n_primary_idle_jobs = n_idle_jobs - n_test_idle_jobs
 
-        unclaimed = {x: y for x, y in self.wn_status.items()
+        unclaimed = {x: y for x, y in self.condor_wns.items()
                      if x.startswith(self.prefix_core[core])
                      and y == "Unclaimed"}
-        test_unclaimed = {x: y for x, y in self.wn_status.items()
+        test_unclaimed = {x: y for x, y in self.condor_wns.items()
                           if x.startswith(self.test_prefix_core[core])
                           and y == "Unclaimed"}
         n_unclaimed = len(unclaimed)
@@ -728,11 +730,9 @@ which does not have HTCondor service.
         self.full_idle_jobs, self.test_idle_jobs \
             = self.condor.condor_idle_jobs(
                 exclude_owners=self.data["primary_accounts"])
-        self.wn_status = self.condor.condor_wn_status()
         self.logger.debug("full_idle_jobs:" + pformat(self.full_idle_jobs))
         self.logger.debug("test_idle_jobs:" + pformat(
             self.test_idle_jobs))
-        self.logger.debug("wn_status:" + pformat(self.wn_status))
         while True:
             if not self.prepare_wns():
                 break
