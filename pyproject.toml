@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "gcpm"
-version = "0.2.3"
+version = "0.2.4"
 description = "Google Cloud Platform Condor Pool Manager"
 repository = "https://github.com/mickaneda/gcpm"
 homepage = "https://github.com/mickaneda/gcpm"
