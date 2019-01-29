@@ -308,6 +308,15 @@ which does not have HTCondor service.
             )
         return self.gcs
 
+    def set_pool_password(self, path="", is_warn_exist=False):
+        if path == "":
+            (ret, out, err) = self.condor.config_val(["SEC_PASSWORD_FILE"])
+            if ret != 0:
+                return
+            path = out
+        self.get_gcs().upload_file(path=path, filename="pool_password",
+                                   is_warn_exist=is_warn_exist)
+
     def check_condor_status(self):
         if self.condor.status()[0] != 0:
             raise RuntimeError("HTCondor is not running!")
@@ -775,6 +784,7 @@ which does not have HTCondor service.
 
     def run(self, oneshot=False):
         self.logger.info("Starting")
+        self.set_pool_password()
         while True:
             try:
                 self.series()

@@ -33,16 +33,17 @@ class Gcs(object):
             )
         return self.storage_service
 
-    def is_bucket(self):
-        return True if self.bucket in self.get_buckets() else False
-
     def get_buckets(self):
-        bucket_list = [x["name"] for x in self.storage().buckets().list(
-            project=self.project).execute()["items"]]
-        return bucket_list
+        buckets = self.storage().buckets().list(project=self.project).execute()
+        if "items" not in buckets:
+            return []
+        return [x["name"] for x in buckets]
+
+    def is_bucket(self, bucket):
+        return True if bucket in self.get_buckets() else False
 
     def delete_bucket(self):
-        if not self.is_bucket():
+        if not self.is_bucket(self.bucket):
             return
         self.storage().buckets().delete(bucket=self.bucket).execute()
 
@@ -56,16 +57,32 @@ class Gcs(object):
         return self.storage().buckets().insert(project=self.project,
                                                body=body).execute()
 
-    def upload_file(self, file_name):
+    def get_files(self):
+        files = self.storage().objects().list(bucket=self.bucket).execute()
+        if "items" not in files:
+            return []
+        return [x["name"] for x in files]
+
+    def is_file(self, filename):
+        return True if filename in self.get_files() else False
+
+    def upload_file(self, path, filename="", is_warn_exist=False):
         self.create_bucket()
-        with open(expand(file_name), 'rb') as f:
+        if filename == ""
+            filename = os.path.basename(path)
+        if self.is_file(filename):
+            if is_warn_exist:
+                self.logger.warning("%s already exists on %s"
+                                    % (filename, self.bucket)
+            return None
+        with open(expand(path), 'rb') as f:
             response = self.storage().objects().insert(
                 bucket=self.bucket,
                 media_body=googleapiclient.http.MediaIoBaseUpload(
                     f, 'application/octet-stream'),
-                name=os.path.basename(file_name)).execute()
+                name=filename).execute()
         return response
 
-    def delete_file(self, file_name):
+    def delete_file(self, filename):
         return self.storage().objects().delete(
-            bucket=self.bucket, object=file_name).execute()
+            bucket=self.bucket, object=filename).execute()
