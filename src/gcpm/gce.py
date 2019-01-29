@@ -63,10 +63,12 @@ class Gce(object):
         return info
 
     def update_instances(self):
-        self.instances = {x["name"]: x for x in
-                          self.compute().instances().list(
-                              project=self.project,
-                              zone=self.zone).execute()["items"]}
+        instances = self.compute().instances().list(project=self.project,
+                                                    zone=self.zone).execute()
+        if "items" in instances:
+            self.instances = {x["name"]: x for x in instances["items"]}
+        else:
+            self.instances = {}
 
     def get_instances(self, update=True, instance_filter={}):
         if update:

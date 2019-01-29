@@ -783,6 +783,7 @@ which does not have HTCondor service.
                 sleep(self.data["interval"])
             except KeyboardInterrupt:
                 break
-            except Exception as e:
-                self.logger.error(e)
+            except:
+                import traceback
+                traceback.print_exc()
                 break
