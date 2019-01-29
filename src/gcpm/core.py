@@ -158,20 +158,38 @@ which does not have HTCondor service.
         self.prefix_core = {}
         self.test_prefix_core = {}
         for machine in self.data["machines"]:
+            # memory must be N x 256 (MB)
+            q, mod = divmod(machine["mem"], 256)
+            if mod != 0:
+                machine["mem"] = (q+1) * 256
+            if "swap" not in machine:
+                machine["swap"] = machine["mem"]
+
             self.prefix_core[machine["core"]] = \
                 "%s-%dcore" % (self.data["prefix"], machine["core"])
             self.test_prefix_core[machine["core"]] = \
                 "%s-test-%dcore" % (self.data["prefix"], machine["core"])
+
+        for machine in self.data["required_machines"]:
+            # memory must be N x 256 (MB)
+            q, mod = divmod(machine["mem"], 256)
+            if mod != 0:
+                machine["mem"] = (q+1) * 256
+            if "swap" not in machine:
+                machine["swap"] = machine["mem"]
+
         if self.data["location"] == "":
             if self.data["storageClass"] == "MULTI_REGIONAL":
                 self.data["location"] = self.data["zone"].split("-")[0]
             else:
                 self.data["location"] = "-".join(
                     self.data["zone"].split("-")[0:2])
+
         if self.data["bucket"] == "":
             self.data["bucket"] = self.data["project"] + "_" + "gcpm_bucket"
         if self.data["bucket"].startswith("gs://"):
             self.data["bucket"] = self.data["bucket"].replace("gs://", "")
+
         if self.data["head"] == "":
             if self.data["head_info"] == "hostname":
                 self.data["head"] = os.uname()[1]
@@ -183,8 +201,10 @@ which does not have HTCondor service.
             else:
                 raise ValueError(
                     "Both %s and %s are empty" % ("head", "head_info"))
+
         if self.data["domain"] == "":
             self.data["domain"] = ".".join(os.uname()[1].split(".")[1:])
+
         if self.data["wait_cmd"] == 1:
             self.n_wait = 100
 
@@ -228,6 +248,7 @@ which does not have HTCondor service.
                     = make_startup_script(
                         core=machine["core"],
                         mem=machine["mem"],
+                        swap=machine["swap"],
                         disk=machine["disk"],
                         image=machine["image"],
                         preemptible=self.data["preemptible"],
@@ -539,15 +560,9 @@ which does not have HTCondor service.
 
     def new_instance(self, instance_name, machine, n_wait=0,
                      update=False, wn_type=None):
-        # memory must be N x 256 (MB)
-        q, mod = divmod(machine["mem"], 256)
-        memory = q * 256
-        if mod != 0:
-            memory += 256
-
         option = {
             "name": instance_name,
-            "machineType": "custom-%d-%d" % (machine["core"], memory),
+            "machineType": "custom-%d-%d" % (machine["core"], machine["mem"]),
             "disks": [
                 {
                     "type": "PERSISTENT",

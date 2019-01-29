@@ -48,6 +48,7 @@ zone         | Zone for Google Compute Engine.|-|Yes
 machines     | Array of machine settings.<br>Each setting is array of [core, mem, disk, idle, image] (see below).|[]|Yes
 machines:core     | Number of core of the machine type.|-|Yes
 machines:mem      | Memory (MB) of the machine type.|-|Yes
+machines:swap     | Swap memory (MB) of the machine type.|Same as mem|No
 machines:disk     | Disk size (GB) of the machine type.|-|Yes
 machines:max      | Limit of the number of instances for the machine type.|-|Yes
 machines:idle     | Number of idle machines for the machine type.|-|Yes
@@ -58,6 +59,7 @@ static_wns   | Array of instance names of static worker nodes, which are added a
 required_machines          | Array of machines which should be running other than worker nodes.|[]|No
 required_machines:name     | Number of core of the machine type.|-|Yes
 required_machines:mem      | Memory (MB) of the machine type.|-|Yes
+required_machines:swap     | Swap memory (MB) of the machine type.|Same as mem|No
 required_machines:disk     | Disk size (GB) of the machine type.|-|Yes
 required_machines:image    | Image of the machine type.|-|Yes
 required_machines:&lt;others&gt; | Other any options can be defined for creating instance.|-|No

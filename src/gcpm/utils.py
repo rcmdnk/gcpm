@@ -25,7 +25,7 @@ def proc(cmd):
     return (p.returncode, stdout, stderr)
 
 
-def make_startup_script(core, mem, disk, image, preemptible, admin,
+def make_startup_script(core, mem, swap, disk, image, preemptible, admin,
                         head, port, domain, owner, bucket, off_timer=0,
                         wn_type=""):
     if wn_type == "test_wn":
@@ -33,9 +33,15 @@ def make_startup_script(core, mem, disk, image, preemptible, admin,
     else:
         start = "SlotID == 1"
     content = """#!/usr/bin/env bash
-echo "{{\\"date\\": \\"$(date +%s)\\", \\"core\\": {core},\\"mem\\": {mem}, \
-\\"disk\\": {disk}, \\"image\\": \\"{image}\\", \
+echo "{{\\"date\\": \\"$(date +%s)\\", \\"core\\": {core}, \\"mem\\": {mem}, \
+\\"swap\\": {swap}, \\"disk\\": {disk}, \\"image\\": \\"{image}\\", \
 \\"preemptible\\": {preemptible}}}" >/var/log/nodeinfo.log
+
+dd if=/dev/zero of=/swapfile bs=1M count={swap}
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo /swapfile swap swap defaults 0 0 >>/etc/fstab
 
 sed -i"" 's/FIXME_ADMIN/{admin}/' /etc/condor/config.d/00_config_local.config
 
@@ -63,11 +69,11 @@ while :;do
   fi
   sleep 10
 done
-date >> /root/condor_started""".format(core=core, mem=mem, disk=disk,
-                                       image=image, preemptible=preemptible,
-                                       admin=admin, head=head, port=port,
-                                       domain=domain, owner=owner,
-                                       bucket=bucket, start=start)
+date >> /root/condor_started""".format(core=core, mem=mem, swap=swap,
+                                       disk=disk, image=image,
+                                       preemptible=preemptible, admin=admin,
+                                       head=head, port=port, domain=domain,
+                                       owner=owner, bucket=bucket, start=start)
 
     if off_timer != 0:
         content += """
