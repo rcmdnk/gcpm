@@ -14,9 +14,10 @@ def test_proc():
 
 def test_make_startup_script():
     script = utils.make_startup_script(
-        core=8, mem=2560, disk=150, image="test-image", preemptible=1,
-        admin="admin", head="head-node", port=1234, domain="example.com",
-        owner="owner", bucket="test-bucket", off_timer=600)
+        core=8, mem=2560, swap=2560, disk=150, image="test-image",
+        preemptible=1, admin="admin", head="head-node", port=1234,
+        domain="example.com", owner="owner", bucket="test-bucket",
+        off_timer=600)
     assert script.startswith("#!/usr")
 
 
