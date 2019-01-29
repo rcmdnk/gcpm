@@ -309,7 +309,7 @@ which does not have HTCondor service.
         return self.gcs
 
     def check_condor_status(self):
-        if self.condor.condor_status()[0] != 0:
+        if self.condor.status()[0] != 0:
             raise RuntimeError("HTCondor is not running!")
 
     def check_required(self):
@@ -426,9 +426,9 @@ which does not have HTCondor service.
 
     def update_condor_collector(self):
         self.make_wn_list()
-        self.condor.condor_config_val(["-collector", "-set",
-                                       "WNS = %s" % self.wn_list])
-        self.condor.condor_reconfig(["-collector"])
+        self.condor.config_val(["-collector", "-set",
+                                "WNS = %s" % self.wn_list])
+        self.condor.reconfig(["-collector"])
 
     def stop_instance(self, instance):
         self.wn_deleting.append(instance)
@@ -747,7 +747,7 @@ which does not have HTCondor service.
     def prepare_wns_wrapper(self):
         self.logger.debug("prepare_wns_wrapper")
         self.full_idle_jobs, self.test_idle_jobs \
-            = self.condor.condor_idle_jobs(
+            = self.condor.dle_jobs(
                 exclude_owners=self.data["primary_accounts"])
         self.logger.debug("full_idle_jobs:" + pformat(self.full_idle_jobs))
         self.logger.debug("test_idle_jobs:" + pformat(

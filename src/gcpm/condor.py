@@ -13,28 +13,28 @@ class Condor(object):
     def __init__(self, test=False):
         self.test = test
 
-    def condor_q(self, opt=[]):
+    def q(self, opt=[]):
         return proc(["condor_q"] + opt)
 
-    def condor_status(self, opt=[]):
+    def status(self, opt=[]):
         if self.test:
             return (0, "", "")
         return proc(["condor_status"] + opt)
 
-    def condor_config_val(self, opt=[]):
+    def config_val(self, opt=[]):
         if self.test:
             return (0, "", "")
         return proc(["condor_config_val"] + opt)
 
-    def condor_reconfig(self, opt=[]):
+    def reconfig(self, opt=[]):
         if self.test:
             return (0, "", "")
         return proc(["condor_reconfig"] + opt)
 
-    def condor_wn(self):
+    def wn(self):
         if self.test:
             return ["gcp-test-wn-1core-0001"]
-        wn_candidates = self.condor_status(["-autoformat", "Name"])[1].split()
+        wn_candidates = self.status(["-autoformat", "Name"])[1].split()
         wn_candidates = [x.split(".")[0] for x in wn_candidates]
         wn_candidates2 = []
         for wn in wn_candidates:
@@ -45,22 +45,22 @@ class Condor(object):
         wn_list = list(set(wn_candidates2))
         return wn_list
 
-    def condor_wn_exist(self, wn_name):
+    def wn_exist(self, wn_name):
         if self.test:
             if wn_name == "gcp-test-wn-1core-0001":
                 return True
             else:
                 return False
 
-        if wn_name in self.condor_wn():
+        if wn_name in self.wn():
             return True
         else:
             return False
 
-    def condor_wn_status(self):
+    def wn_status(self):
         if self.test:
             return {"gcp-test-wn-1core-0001": "Claimed"}
-        status_ret = self.condor_status(["-autoformat", "Name", "State"])[1]
+        status_ret = self.status(["-autoformat", "Name", "State"])[1]
         status_dict = {}
         for line in status_ret.splitlines():
             name, status = line.split()
@@ -70,10 +70,10 @@ class Condor(object):
             status_dict[name] = status
         return status_dict
 
-    def condor_idle_jobs(self, owners=[], exclude_owners=[]):
+    def idle_jobs(self, owners=[], exclude_owners=[]):
         if self.test:
             return [{1: 1}, {}]
-        qinfo = self.condor_q(["-allusers", "-global", "-autoformat",
+        qinfo = self.q(["-allusers", "-global", "-autoformat",
                                "JobStatus", "RequestCpus", "Owner"])[1]
         full_idle_jobs = {}
         selected_idle_jobs = {}
