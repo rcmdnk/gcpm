@@ -313,7 +313,7 @@ which does not have HTCondor service.
             (ret, out, err) = self.condor.config_val(["SEC_PASSWORD_FILE"])
             if ret != 0:
                 return
-            path = out
+            path = out.strip()
         self.get_gcs().upload_file(path=path, filename="pool_password",
                                    is_warn_exist=is_warn_exist)
 
@@ -518,7 +518,7 @@ which does not have HTCondor service.
 
     def update_wns(self):
         self.get_instances_wns(update=False)
-        self.condor_wns = self.condor.condor_wn_status()
+        self.condor_wns = self.condor.wn_status()
         self.update_condor_collector()
         self.clean_wns()
         self.check_wns()
@@ -756,7 +756,7 @@ which does not have HTCondor service.
     def prepare_wns_wrapper(self):
         self.logger.debug("prepare_wns_wrapper")
         self.full_idle_jobs, self.test_idle_jobs \
-            = self.condor.dle_jobs(
+            = self.condor.idle_jobs(
                 exclude_owners=self.data["primary_accounts"])
         self.logger.debug("full_idle_jobs:" + pformat(self.full_idle_jobs))
         self.logger.debug("test_idle_jobs:" + pformat(

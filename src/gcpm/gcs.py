@@ -37,7 +37,7 @@ class Gcs(object):
         buckets = self.storage().buckets().list(project=self.project).execute()
         if "items" not in buckets:
             return []
-        return [x["name"] for x in buckets]
+        return [x["name"] for x in buckets["items"]]
 
     def is_bucket(self, bucket):
         return True if bucket in self.get_buckets() else False
@@ -48,7 +48,7 @@ class Gcs(object):
         self.storage().buckets().delete(bucket=self.bucket).execute()
 
     def create_bucket(self):
-        if self.is_bucket():
+        if self.is_bucket(self.bucket):
             return
         body = {"name": self.bucket,
                 "sotrageClass": self.storageClass,
@@ -61,19 +61,19 @@ class Gcs(object):
         files = self.storage().objects().list(bucket=self.bucket).execute()
         if "items" not in files:
             return []
-        return [x["name"] for x in files]
+        return [x["name"] for x in files["items"]]
 
     def is_file(self, filename):
         return True if filename in self.get_files() else False
 
     def upload_file(self, path, filename="", is_warn_exist=False):
         self.create_bucket()
-        if filename == ""
+        if filename == "":
             filename = os.path.basename(path)
         if self.is_file(filename):
             if is_warn_exist:
                 self.logger.warning("%s already exists on %s"
-                                    % (filename, self.bucket)
+                                    % (filename, self.bucket))
             return None
         with open(expand(path), 'rb') as f:
             response = self.storage().objects().insert(
