@@ -116,8 +116,22 @@ primary_accounts:
   - condor_primary
 ```
 
-In this case, normal jobs can launch 10 1 core machines and 2 8 core machines,
+In this case, normal jobs can launch 10 1-core machines and 2 8-core machines,
 then 16 cores are used.
 
 Even if there are a log of idle **condor_primary**'s jobs,
 1 core test jobs by other accounts can run: 4 jobs at most.
+
+## Puppet setup
+
+* [mickaneda/puppet-gcpm](https://github.com/mickaneda/puppet-gcpm)
+
+A puppet module for GCPM.
+
+* [mickaneda/gcpm-puppet](https://github.com/mickaneda/gcpm-puppet)
+
+A puppet example to create head (manager) node and worker node with puppet.
+
+* [mickaneda/frontiersquid-puppet](https://github.com/mickaneda/frontiersquid-puppet)
+
+A puppet example to create frontier squid proxy server in GCP.
