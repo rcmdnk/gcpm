@@ -23,12 +23,12 @@ class Condor(object):
 
     def config_val(self, opt=[]):
         if self.test:
-            return (0, "", "")
+            return (-1, "", "")
         return proc(["condor_config_val"] + opt)
 
     def reconfig(self, opt=[]):
         if self.test:
-            return (0, "", "")
+            return (-1, "", "")
         return proc(["condor_reconfig"] + opt)
 
     def wn(self):
@@ -73,8 +73,8 @@ class Condor(object):
     def idle_jobs(self, owners=[], exclude_owners=[]):
         if self.test:
             return [{1: 1}, {}]
-        qinfo = self.q(["-allusers", "-global", "-autoformat",
-                               "JobStatus", "RequestCpus", "Owner"])[1]
+        qinfo = self.q(["-allusers", "-global", "-autoformat", "JobStatus",
+                        "RequestCpus", "Owner"])[1]
         full_idle_jobs = {}
         selected_idle_jobs = {}
         if qinfo == "All queues are empty\n":

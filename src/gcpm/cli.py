@@ -46,7 +46,6 @@ class CliObject(object):
     def set_pool_password(self, pool_password):
         """Set pool_password file in google storage."""
         Gcpm(config=self.config).set_pool_password(path=pool_password,
-                                                   filename="pool_password",
                                                    is_warn_exist=True)
 
 
