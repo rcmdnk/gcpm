@@ -92,7 +92,7 @@ If primary accounts are set, jobs of **non-primary** accounts can run on test wo
 
 If there are already max number of 1 core worker nodes
 and idle jobs of non-primary accounts are there,
-test worker node named **&lt;prefix&gt-test-1core-XXXX** will be launched
+test worker node named **&lt;prefix&gt;-test-1core-XXXX** will be launched
 and only non-primary account jobs can run on it.
 
 This able to run such a test job w/o waiting for finishing any normal jobs.
