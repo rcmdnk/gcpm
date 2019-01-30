@@ -121,4 +121,3 @@ then 16 cores are used.
 
 Even if there are a log of idle **condor_primary**'s jobs,
 1 core test jobs by other accounts can run: 4 jobs at most.
-
