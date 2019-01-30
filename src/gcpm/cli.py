@@ -50,7 +50,7 @@ class CliObject(object):
 
 
 def cli():
-    if len(sys.argv) <= 1:
+    if len(sys.argv) <= 1 or sys.argv[1] in ["-h", "--help"]:
         Gcpm.help()
     else:
         fire.Fire(CliObject)
