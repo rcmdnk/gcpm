@@ -16,7 +16,7 @@ case $1 in
   test)poetry run pytest -v --cov=./src --cov-report=html;;
   debug)poetry run pytest -o log_cli=true --log-cli-level=DEBUG -v -s --cov=./src --cov-report=html;;
   version)version_update;;
-  pypi)poetry publish --build;;
-  testpypi)poetry publish -r testpypi --build;;
+  pypi)version_update; poetry publish --build;;
+  testpypi)version_update; poetry publish -r testpypi --build;;
   *)echo "$usage";exit 1;;
 esac
