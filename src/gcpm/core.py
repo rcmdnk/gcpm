@@ -642,7 +642,7 @@ which does not have HTCondor service.
             if e.resp.status == 409:
                 self.logger.warning(e)
                 return False
-            raise HttpError(e.message)
+            raise HttpError(e.resp, e.content, e.uri)
 
     def prepare_wns(self):
         created = False
