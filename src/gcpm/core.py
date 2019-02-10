@@ -263,7 +263,14 @@ which does not have HTCondor service.
                         wn_type=wn_type
                     )
                 self.scripts[wn_type]["shutdown"][machine["core"]] \
-                    = make_shutdown_script()
+                    = make_shutdown_script(
+                        core=machine["core"],
+                        mem=machine["mem"],
+                        swap=machine["swap"],
+                        disk=machine["disk"],
+                        image=machine["image"],
+                        preemptible=self.data["preemptible"],
+                    )
 
     def after_update_config(self):
         self.set_logger()

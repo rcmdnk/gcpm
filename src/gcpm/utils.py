@@ -33,9 +33,11 @@ def make_startup_script(core, mem, swap, disk, image, preemptible, admin,
     else:
         start = "SlotID == 1"
     content = """#!/usr/bin/env bash
-echo "{{\\"date\\": \\"$(date +%s)\\", \\"core\\": {core}, \\"mem\\": {mem}, \
+echo "{{\\"date\\": $(date +%s), \\"core\\": {core}, \\"mem\\": {mem}, \
 \\"swap\\": {swap}, \\"disk\\": {disk}, \\"image\\": \\"{image}\\", \
-\\"preemptible\\": {preemptible}}}" >/var/log/nodeinfo.log
+\\"preemptible\\": {preemptible} \
+}}" >/var/log/nodeinfo.log
+date +%s > /root/start_date
 
 dd if=/dev/zero of=/swapfile bs=1M count={swap}
 chmod 600 /swapfile
@@ -83,11 +85,16 @@ date >> /root/condor_off""".format(off_timer=off_timer)
     return content
 
 
-def make_shutdown_script():
+def make_shutdown_script(core, mem, swap, disk, image, preemptible):
     content = """#!/usr/bin/env bash
 preempted=$(\
 curl "http://metadata.google.internal/computeMetadata/v1/instance/preempted" \
 -H "Metadata-Flavor: Google")
-echo "{{\\"date\\": \\"$(date +%s)\\", \\"preempted\\": ${{preempted}}}}" \
->>/var/log/shutdown.log""".format()
+echo "{{\\"date\\": $(date +%s), \\"core\\": {core}, \\"mem\\": {mem}, \
+\\"swap\\": {swap}, \\"disk\\": {disk}, \\"image\\": \\"{image}\\", \
+\\"preemptible\\": {preemptible}, \\"preempted\\": ${{preempted}}, \
+\\"uptime\\": $(cut -d "." -f1 /proc/uptime) \
+}}" >>/var/log/shutdown.log""".format(core=core, mem=mem, swap=swap,
+                                disk=disk, image=image,
+                                preemptible=preemptible)
     return content
