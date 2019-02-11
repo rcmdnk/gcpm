@@ -87,6 +87,7 @@ date >> /root/condor_off""".format(off_timer=off_timer)
 
 def make_shutdown_script(core, mem, swap, disk, image, preemptible):
     content = """#!/usr/bin/env bash
+unset http_proxy
 preempted=$(\
 curl "http://metadata.google.internal/computeMetadata/v1/instance/preempted" \
 -H "Metadata-Flavor: Google")
