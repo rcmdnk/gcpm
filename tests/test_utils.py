@@ -22,5 +22,7 @@ def test_make_startup_script():
 
 
 def test_make_shutdown_script():
-    script = utils.make_shutdown_script()
+    script = utils.make_shutdown_script(
+        core=8, mem=2560, swap=2560, disk=150, image="test-image",
+        preemptible=1)
     assert script.startswith("#!/usr")
