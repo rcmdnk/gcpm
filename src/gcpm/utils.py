@@ -90,9 +90,12 @@ def make_shutdown_script(core, mem, swap, disk, image, preemptible):
 preempted=$(\
 curl "http://metadata.google.internal/computeMetadata/v1/instance/preempted" \
 -H "Metadata-Flavor: Google")
+if echo "$preemptible"|grep -q error;then
+  preemptible="-"
+fi
 echo "{{\\"date\\": $(date +%s), \\"core\\": {core}, \\"mem\\": {mem}, \
 \\"swap\\": {swap}, \\"disk\\": {disk}, \\"image\\": \\"{image}\\", \
-\\"preemptible\\": {preemptible}, \\"preempted\\": ${{preempted}}, \
+\\"preemptible\\": {preemptible}, \\"preempted\\": \\"${{preempted}}\\", \
 \\"uptime\\": $(cut -d "." -f1 /proc/uptime) \
 }}" >>/var/log/shutdown.log""".format(core=core, mem=mem, swap=swap,
                                 disk=disk, image=image,
