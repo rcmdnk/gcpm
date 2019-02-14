@@ -27,6 +27,8 @@ from .gcs import Gcs
 class Gcpm(object):
     """HTCondor pool manager for Google Cloud Platform."""
 
+    _HTCONDOR_NOT_RUNNIG = "HTCondor is not running!"
+
     def __init__(self, config="", service=False, test=False):
         self.first_update_config = 0
         self.logger = None
@@ -327,7 +329,7 @@ which does not have HTCondor service.
 
     def check_condor_status(self):
         if self.condor.status()[0] != 0:
-            raise RuntimeError("HTCondor is not running!")
+            raise RuntimeError(self._HTCONDOR_NOT_RUNNIG)
 
     def check_required(self):
         for machine in self.data["required_machines"]:
@@ -801,7 +803,15 @@ which does not have HTCondor service.
                 sleep(self.data["interval"])
             except KeyboardInterrupt:
                 break
-            except:
+            except RuntimeError as e:
+                if e.message == self._HTCONDOR_NOT_RUNNIG:
+                    self.logger.warning(self._HTCONDOR_NOT_RUNNIG)
+                    sleep(self.data["interval"])
+                else:
+                    import traceback
+                    self.logger.error(traceback.format_exc())
+                    sys.exit(1)
+            except Exception:
                 import traceback
                 self.logger.error(traceback.format_exc())
                 sys.exit(1)
