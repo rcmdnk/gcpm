@@ -333,27 +333,32 @@ which does not have HTCondor service.
 
     def check_required(self):
         for machine in self.data["required_machines"]:
-            if machine["name"] in self.instances_gce:
-                status = self.instances_gce[machine["name"]]["status"]
-                if status == "RUNNING":
-                    continue
-                elif status == "TERMINATED":
-                    if not self.get_gce().start_instance(machine["name"],
-                                                         n_wait=100,
-                                                         update=False):
-                        raise RuntimeError(
-                            "Failed to start required machine: %s"
-                            % machine["name"])
-                else:
-                    raise RuntimeError(
-                        "Required machine %s is unknown stat: %s"
-                        % (machine["name"], status))
-            else:
-                if not self.new_instance(machine["name"], machine, n_wait=100,
-                                         update=True, wn_type=None):
+            while True:
+                if machine["name"] in self.instances_gce:
+                    status = self.instances_gce[machine["name"]]["status"]
+                    if status == "RUNNING":
+                        break
+                    elif status == "TERMINATED":
+                        if not self.get_gce().start_instance(machine["name"],
+                                                             n_wait=100,
+                                                             update=False):
+                            raise RuntimeError(
+                                "Failed to start required machine: %s"
+                                % machine["name"])
+                    else:
+                        self.logging.warning(
+                            "Required machine %s is unknown stat: %s\n"
+                            "Wait 10 sec."
+                            % (machine["name"], status))
+                        sleep(10)
+                        continue
+                elif not self.new_instance(machine["name"], machine,
+                                           n_wait=100, update=True,
+                                           wn_type=None):
                     raise RuntimeError(
                         "Failed to create required machine: %s"
                         % machine["name"])
+                break
 
     def get_instances_gce(self, update=True):
         if update:
