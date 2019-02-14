@@ -16,7 +16,8 @@ from pprint import pformat
 from googleapiclient.errors import HttpError
 from .__init__ import __version__
 from .__init__ import __program__
-from .utils import expand, make_startup_script, make_shutdown_script
+from .utils import expand, make_startup_script, make_shutdown_script,\
+    make_startup_script_swap
 from .files import make_file, make_service, make_logrotate, rm_service,\
     rm_logrotate
 from .condor import Condor
@@ -180,6 +181,11 @@ which does not have HTCondor service.
                 machine["mem"] = (q+1) * 256
             if "swap" not in machine:
                 machine["swap"] = machine["mem"]
+            if "metadata" not in machine:
+                machine["metadata"] = {}
+            machine["metadata"]["items"] = [
+                {"key": "startup-script",
+                 "value": make_startup_script_swap(machine["swap"])}]
 
         if self.data["location"] == "":
             if self.data["storageClass"] == "MULTI_REGIONAL":
@@ -346,7 +352,7 @@ which does not have HTCondor service.
                                 "Failed to start required machine: %s"
                                 % machine["name"])
                     else:
-                        self.logging.warning(
+                        self.logger.warning(
                             "Required machine %s is unknown stat: %s\n"
                             "Wait 10 sec."
                             % (machine["name"], status))
@@ -642,8 +648,8 @@ which does not have HTCondor service.
                     }
                 })
         for opt in machine:
-            if opt not in ["name", "core", "mem", "disk", "image", "max",
-                           "idle", "ssd"]:
+            if opt not in ["name", "core", "mem", "swap", "disk", "image",
+                           "max", "idle", "ssd"]:
                 option[opt] = machine[opt]
 
         if wn_type is not None:

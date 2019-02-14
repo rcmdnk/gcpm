@@ -25,6 +25,17 @@ def proc(cmd):
     return (p.returncode, stdout, stderr)
 
 
+def make_startup_script_swap(swap):
+    content = """#!/usr/bin/env bash
+dd if=/dev/zero of=/swapfile bs=1M count={swap}
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+echo /swapfile swap swap defaults 0 0 >>/etc/fstab
+""".format(swap=swap)
+    return content
+
+
 def make_startup_script(core, mem, swap, disk, image, preemptible, admin,
                         head, port, domain, owner, bucket, off_timer=0,
                         wn_type=""):
@@ -99,6 +110,6 @@ echo "{{\\"date\\": $(date +%s), \\"core\\": {core}, \\"mem\\": {mem}, \
 \\"preemptible\\": {preemptible}, \\"preempted\\": \\"${{preempted}}\\", \
 \\"uptime\\": $(cut -d "." -f1 /proc/uptime) \
 }}" >>/var/log/shutdown.log""".format(core=core, mem=mem, swap=swap,
-                                disk=disk, image=image,
-                                preemptible=preemptible)
+                                      disk=disk, image=image,
+                                      preemptible=preemptible)
     return content
