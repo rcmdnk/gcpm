@@ -27,7 +27,7 @@ from .gcs import Gcs
 class Gcpm(object):
     """HTCondor pool manager for Google Cloud Platform."""
 
-    _HTCONDOR_NOT_RUNNIG = "HTCondor is not running!"
+    _HTCONDOR_STATUS_FAILED = "Failed to get HTCondor status"
 
     def __init__(self, config="", service=False, test=False):
         self.first_update_config = 0
@@ -329,7 +329,7 @@ which does not have HTCondor service.
 
     def check_condor_status(self):
         if self.condor.status()[0] != 0:
-            raise RuntimeError(self._HTCONDOR_NOT_RUNNIG)
+            raise RuntimeError(self._HTCONDOR_STATUS_FAILED)
 
     def check_required(self):
         for machine in self.data["required_machines"]:
@@ -414,7 +414,8 @@ which does not have HTCondor service.
                     self.wns[wn] = self.prev_wns[wn]
                     self.logger.debug(
                         "%s is listed in the condor status, "
-                        "but instance does not exist, maybe being deleted." % (wn))
+                        "but instance does not exist, maybe being deleted."
+                        % (wn))
                 else:
                     self.logger.warning(
                         "%s is listed in the condor status, "
@@ -528,7 +529,9 @@ which does not have HTCondor service.
 
     def update_wns(self):
         self.get_instances_wns(update=False)
-        self.condor_wns = self.condor.wn_status()
+        ret, self.condor_wns = self.condor.wn_status()
+        if ret != 0:
+            raise RuntimeError(self._HTCONDOR_STATUS_FAILED)
         self.update_condor_collector()
         self.clean_wns()
         self.check_wns()
@@ -804,8 +807,8 @@ which does not have HTCondor service.
             except KeyboardInterrupt:
                 break
             except RuntimeError as e:
-                if e.message == self._HTCONDOR_NOT_RUNNIG:
-                    self.logger.warning(self._HTCONDOR_NOT_RUNNIG)
+                if e.message == self._HTCONDOR_STATUS_FAILED:
+                    self.logger.warning(self._HTCONDOR_STATUS_FAILED)
                     sleep(self.data["interval"])
                 else:
                     import traceback

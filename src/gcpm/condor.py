@@ -34,8 +34,11 @@ class Condor(object):
     def wn(self):
         if self.test:
             return ["gcp-test-wn-1core-0001"]
-        wn_candidates = self.status(["-autoformat", "Name"])[1].split()
-        wn_candidates = [x.split(".")[0] for x in wn_candidates]
+        ret, wn_candidates, err = self.status(
+            ["-autoformat", "Name"])
+        if ret != 0:
+            return ret, []
+        wn_candidates = [x.split(".")[0] for x in wn_candidates.split()]
         wn_candidates2 = []
         for wn in wn_candidates:
             if "@" in wn:
@@ -43,7 +46,7 @@ class Condor(object):
             else:
                 wn_candidates2.append(wn)
         wn_list = list(set(wn_candidates2))
-        return wn_list
+        return ret, wn_list
 
     def wn_exist(self, wn_name):
         if self.test:
@@ -60,15 +63,17 @@ class Condor(object):
     def wn_status(self):
         if self.test:
             return {"gcp-test-wn-1core-0001": "Claimed"}
-        status_ret = self.status(["-autoformat", "Name", "State"])[1]
+        ret, status, err = self.status(["-autoformat", "Name", "State"])
+        if ret != 0:
+            return ret, {}
         status_dict = {}
-        for line in status_ret.splitlines():
+        for line in status.splitlines():
             name, status = line.split()
             name = name.split(".")[0]
             if "@" in name:
                 name = name.split("@")[1]
             status_dict[name] = status
-        return status_dict
+        return ret, status_dict
 
     def idle_jobs(self, owners=[], exclude_owners=[]):
         if self.test:
