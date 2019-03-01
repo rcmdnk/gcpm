@@ -79,13 +79,13 @@ class Condor(object):
         if self.test:
             return [{1: 1}, {}]
         qinfo = self.q(["-allusers", "-global", "-autoformat", "JobStatus",
-                        "RequestCpus", "Owner"])[1]
+                        "RequestCpus", "RequestMemory", "Owner"])[1]
         full_idle_jobs = {}
         selected_idle_jobs = {}
         if qinfo == "All queues are empty\n":
             return [full_idle_jobs, selected_idle_jobs]
         for line in qinfo.splitlines():
-            status, core, owner = line.split()
+            status, core, memory, owner = line.split()
             status = int(status)
             core = int(core)
             if status != 1:

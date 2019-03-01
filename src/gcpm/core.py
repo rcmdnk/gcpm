@@ -574,22 +574,35 @@ which does not have HTCondor service.
 
         return True
 
-    def start_terminated(self, core):
+    def start_terminated(self, core, prefix):
         if self.data["reuse"] != 1:
             return False
 
-        for instance in self.get_instances_non_terminated(update=False):
-            if instance.startswith(self.prefix_core[core]):
-                self.wn_starting.append(instance)
-                try:
-                    self.get_gce().start_instance(instance, n_wait=self.n_wait,
-                                                  update=False)
-                except HttpError as e:
-                    self.wn_starting.remove(instance)
-                    self.logger.warning(e)
-                    return False
-                return True
-        return True
+        if type(prefix) is str:
+            prefix = [prefix]
+
+        for instance in self.get_instances_terminated(update=False):
+            prefixcheck = False
+            for p in prefix:
+                if instance.startswith(p):
+                    prefixcheck = True
+                    break
+            if not prefixcheck:
+                continue
+
+            if instance in self.wn_starting:
+                continue
+
+            self.wn_starting.append(instance)
+            try:
+                self.get_gce().start_instance(instance, n_wait=self.n_wait,
+                                              update=False)
+            except HttpError as e:
+                self.wn_starting.remove(instance)
+                self.logger.warning(e)
+                return False
+            return True
+        return False
 
     def new_instance(self, instance_name, machine, n_wait=0,
                      update=False, wn_type=None):
@@ -673,7 +686,9 @@ which does not have HTCondor service.
             if not self.check_for_core(machine):
                 continue
 
-            if self.start_terminated(machine["core"]):
+            if self.start_terminated(machine["core"],
+                                     self.prefix_core[machine["core"]]):
+                created = True
                 continue
 
             n = 1
@@ -733,31 +748,16 @@ which does not have HTCondor service.
 
         return True
 
-    def start_test_terminated(self, core):
-        if self.data["reuse"] != 1:
-            return False
-
-        for instance in self.get_instances_non_terminated(update=False):
-            if instance.startswith(self.prefix_core[core]) \
-                    or instance.startswith(self.test_prefix_core[core]):
-                self.wn_starting.append(instance)
-                try:
-                    self.get_gce().start_instance(instance, n_wait=self.n_wait,
-                                                  update=False)
-                except HttpError as e:
-                    self.wn_starting.remove(instance)
-                    self.logger.warning(e)
-                    return False
-                return True
-        return True
-
     def prepare_test_wns(self):
         created = False
         for machine in self.data["machines"]:
             if not self.check_for_test_core(machine):
                 continue
 
-            if self.start_test_terminated(machine["core"]):
+            if self.start_terminated(machine["core"],
+                                     [self.prefix_core[machine["core"]],
+                                      self.test_prefix_core[machine["core"]]]):
+                created = True
                 continue
 
             n = 1
