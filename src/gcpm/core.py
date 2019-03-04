@@ -547,30 +547,58 @@ which does not have HTCondor service.
         self.clean_wns()
         self.check_wns()
 
-    def check_for_core(self, machine):
+    def check_for_core(self, machine, test=False):
         core = machine["core"]
+        if self.data["max_cores"] > 0 and \
+                self.total_core_use + core > self.data["max_cores"]:
+            return False
+
+        if test:
+            n_test_idle_jobs = self.test_idle_jobs[core] \
+                if core in self.test_idle_jobs else 0
+            if n_test_idle_jobs == 0:
+                return False
+        else:
+            n_test_idle_jobs = 0
+
         n_idle_jobs = self.full_idle_jobs[core] \
             if core in self.full_idle_jobs else 0
+        n_primary_idle_jobs = n_idle_jobs - n_test_idle_jobs
+
         machines = {x: y for x, y in self.condor_wns_exist.items()
                     if x.startswith(self.prefix_core[core])}
-        n_machines = len(machines)
-        unclaimed = [x for x, y in machines.items() if y == "Unclaimed"]
-        n_unclaimed = len(unclaimed) - n_idle_jobs - machine["idle"]
+        if test:
+            test_machines = {x: y for x, y in self.condor_wns_exist.items()
+                             if x.startswith(self.test_prefix_core[core])}
+        else:
+            test_machines = {}
 
+        unclaimed = {x: y for x, y in machines.items() if y == "Unclaimed"}
+        test_unclaimed = {x: y for x, y in test_machines.items()
+                          if y == "Unclaimed"}
+        n_machines = len(machines) + len(test_machines)
+
+        n_unclaimed = len(unclaimed)
         for wn in self.wn_starting:
             if wn.startswith(self.prefix_core[core]):
                 n_machines += 1
                 n_unclaimed += 1
+        n_unclaimed -= n_primary_idle_jobs
+        if n_unclaimed < 0:
+            n_unclaimed = 0
 
-        if n_machines >= machine["max"]:
-            return False
+        if test:
+            n_unclaimed += len(test_unclaimed)
+            for wn in self.wn_starting:
+                if wn.startswith(self.test_prefix_core[core]):
+                    n_unclaimed += 1
+            n_unclaimed -= n_test_idle_jobs
+        else:
+            if n_machines >= machine["max"]:
+                return False
 
         if n_unclaimed >= 0:
             return False
-
-        if self.data["max_cores"] > 0:
-            if self.total_core_use + core > self.data["max_cores"]:
-                return False
 
         return True
 
@@ -680,14 +708,21 @@ which does not have HTCondor service.
                 return False
             raise HttpError(e.resp, e.content, e.uri)
 
-    def prepare_wns(self):
+    def prepare_wns(self, test=False):
         created = False
         for machine in self.data["machines"]:
-            if not self.check_for_core(machine):
+            prefixes = [self.prefix_core[machine["core"]]]
+            if not self.check_for_core(machine, test):
                 continue
+            if test:
+                prefixes.append(self.test_prefix_core[machine["core"]])
+                prefix = self.test_prefix_core[machine["core"]]
+                wn_type = "test_wn"
+            else:
+                prefix = self.prefix_core[machine["core"]]
+                wn_type = "wn"
 
-            if self.start_terminated(machine["core"],
-                                     self.prefix_core[machine["core"]]):
+            if self.start_terminated(machine["core"], prefixes):
                 created = True
                 continue
 
@@ -695,83 +730,13 @@ which does not have HTCondor service.
             while n < self.data["instance_max_num"]:
                 instance_name = ("%s-%0"
                                  + str(len(str(self.data["instance_max_num"])))
-                                 + "d").format() % (
-                    self.prefix_core[machine["core"]], n)
+                                 + "d").format() % (prefix, n)
                 if instance_name in self.get_full_wns():
                     n += 1
                     continue
 
                 self.new_instance(instance_name, machine, n_wait=self.n_wait,
-                                  wn_type="wn")
-                created = True
-                break
-
-        return created
-
-    def check_for_test_core(self, machine):
-        core = machine["core"]
-        n_test_idle_jobs = self.test_idle_jobs[core] \
-            if core in self.test_idle_jobs else 0
-        if n_test_idle_jobs == 0:
-            return False
-
-        n_idle_jobs = self.full_idle_jobs[core] \
-            if core in self.full_idle_jobs else 0
-        n_primary_idle_jobs = n_idle_jobs - n_test_idle_jobs
-
-        unclaimed = {x: y for x, y in self.condor_wns_exist.items()
-                     if x.startswith(self.prefix_core[core])
-                     and y == "Unclaimed"}
-        test_unclaimed = {x: y for x, y in self.condor_wns_exist.items()
-                          if x.startswith(self.test_prefix_core[core])
-                          and y == "Unclaimed"}
-        n_unclaimed = len(unclaimed)
-        for wn in self.wn_starting:
-            if wn.startswith(self.prefix_core[core]):
-                n_unclaimed += 1
-        n_unclaimed -= n_primary_idle_jobs
-        if n_unclaimed < 0:
-            n_unclaimed = 0
-
-        n_unclaimed += len(test_unclaimed)
-        for wn in self.wn_starting:
-            if wn.startswith(self.test_prefix_core[core]):
-                n_unclaimed += 1
-        n_unclaimed -= n_test_idle_jobs
-
-        if n_unclaimed >= 0:
-            return False
-
-        if self.data["max_cores"] > 0:
-            if self.total_core_use + core > self.data["max_cores"]:
-                return False
-
-        return True
-
-    def prepare_test_wns(self):
-        created = False
-        for machine in self.data["machines"]:
-            if not self.check_for_test_core(machine):
-                continue
-
-            if self.start_terminated(machine["core"],
-                                     [self.prefix_core[machine["core"]],
-                                      self.test_prefix_core[machine["core"]]]):
-                created = True
-                continue
-
-            n = 1
-            while n < self.data["instance_max_num"]:
-                instance_name = ("%s-%0"
-                                 + str(len(str(self.data["instance_max_num"])))
-                                 + "d").format() % (
-                    self.test_prefix_core[machine["core"]], n)
-                if instance_name in self.get_full_wns():
-                    n += 1
-                    continue
-
-                self.new_instance(instance_name, machine, n_wait=self.n_wait,
-                                  wn_type="test_wn")
+                                  wn_type=wn_type)
                 created = True
                 break
 
@@ -789,7 +754,7 @@ which does not have HTCondor service.
             if not self.prepare_wns():
                 break
         while True:
-            if not self.prepare_test_wns():
+            if not self.prepare_wns(test=True):
                 break
 
     def series(self):
