@@ -70,6 +70,7 @@ off_timer    | Second to send condor_off after starting.|0|No
 network_tag  | Array of GCP network tag.|[]|No
 reuse        | 1 to reused terminated instance. Otherwise delete and re-created instances.|0|No
 interval     | Second of interval for each loop.|10|No
+clean_time   | Time to clean up residual instances in starting/deleting status.|600|No
 head_info    | If **head** is empty, head node information is automatically taken for each option:<br>hostname: Hostname<br>ip: IP address<br>gcp: Hostname|**gcp**|No
 head         | Head node Hostname/IP address.|""|No
 port         | HTCondor port.|9618|No

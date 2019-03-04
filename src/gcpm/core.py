@@ -10,6 +10,7 @@ import sys
 import logging
 import copy
 import json
+import time
 import ruamel.yaml
 from time import sleep
 from pprint import pformat
@@ -23,6 +24,7 @@ from .files import make_file, make_service, make_logrotate, rm_service,\
 from .condor import Condor
 from .gce import Gce
 from .gcs import Gcs
+from .machine import Machine
 
 
 class Gcpm(object):
@@ -56,12 +58,13 @@ class Gcpm(object):
             "required_machines": [],
             "primary_accounts": [],
             "prefix": "gcp-wn",
-            "instance_max_num": 9999,
+            "instance_max_num": 999999,
             "preemptible": 0,
             "off_timer": 0,
             "network_tag": [],
             "reuse": 0,
             "interval": 10,
+            "clean_time": 600,
             "head_info": "gcp",
             "head": "",
             "port": 9618,
@@ -462,33 +465,42 @@ which does not have HTCondor service.
         self.condor.reconfig(["-collector"])
 
     def stop_instance(self, instance):
-        self.wn_deleting.append(instance)
+        machine = Machine(name=instance, start_time=time.time())
+        self.wn_deleting.append(machine)
         try:
             self.get_gce().stop_instance(instance,
                                          n_wait=self.n_wait,
                                          update=False)
         except HttpError as e:
-            self.wn_deleting.remove(instance)
+            self.wn_deleting.remove(machine)
             self.logger.warning(e)
 
     def delete_instance(self, instance):
-        self.wn_deleting.append(instance)
+        machine = Machine(name=instance, start_time=time.time())
+        self.wn_deleting.append(machine)
         try:
             self.get_gce().delete_instance(instance,
                                            n_wait=self.n_wait,
                                            update=False)
         except HttpError as e:
-            self.wn_deleting.remove(instance)
+            self.wn_deleting.remove(machine)
             self.logger.warning(e)
 
     def clean_wns(self):
         self.logger.debug("clean_wns")
         for wn in self.wn_starting:
-            if wn in self.condor_wns:
+            if wn.get_name() in self.condor_wns:
+                self.wn_starting.remove(wn)
+            if wn.get_running_time() > self.data["clean_time"]:
+                self.logger.warning(
+                    "%s is in starting status for more than 10 min, "
+                    "maybe problems happened, "
+                    "remove it from starting list." % wn.get_name()
+                )
                 self.wn_starting.remove(wn)
 
         exist_list = self.data["static_wns"] + list(self.condor_wns) \
-            + self.wn_starting + self.wn_deleting
+            + self.get_starting_deleting_names()
         instances = []
 
         # Delete condor_off instances
@@ -506,21 +518,29 @@ which does not have HTCondor service.
                 self.delete_instance(instance)
 
         for wn in self.wn_deleting:
-            if wn not in instances:
+            if wn.get_name() not in instances:
                 self.wn_deleting.remove(wn)
+            if wn.get_running_time() > self.data["clean_time"]:
+                self.logger.warning(
+                    "%s is in deleting status for more than 10 min, "
+                    "maybe problems happened, "
+                    "remove it from starting list." % wn.get_name()
+                )
+                self.wn_starting.remove(wn)
 
     def check_terminated(self):
         if self.data["reuse"] == 1:
             return
         for instance, info in self.get_instances_terminated(
                 update=False).items():
-            if instance in self.wn_starting + self.wn_deleting:
+            if instance in \
+                    self.get_starting_deleting_names():
                 continue
             self.delete_instance(instance)
 
     def update_total_core_use(self):
         working = list(self.get_instances_non_terminated(update=False)) \
-            + self.wn_starting + self.wn_deleting
+            + self.get_starting_deleting_names()
 
         self.total_core_use = 0
         for wn in working:
@@ -530,9 +550,12 @@ which does not have HTCondor service.
                     self.total_core_use += core
                     break
 
+    def get_starting_deleting_names(self):
+        return [x.get_name() for x in self.wn_starting + self.wn_deleting]
+
     def get_full_wns(self):
-        return list(self.instances_gce) + self.wn_starting \
-            + self.wn_deleting + list(self.condor_wns)
+        return list(self.instances_gce) + self.get_starting_deleting_names() \
+            + list(self.condor_wns)
 
     def check_wns(self):
         self.check_terminated()
@@ -558,8 +581,13 @@ which does not have HTCondor service.
                 if core in self.test_idle_jobs else 0
             if n_test_idle_jobs == 0:
                 return False
+            test_machines = {x: y for x, y in self.condor_wns_exist.items()
+                             if x.startswith(self.test_prefix_core[core])}
+            machine_idle = 0
         else:
             n_test_idle_jobs = 0
+            test_machines = {}
+            machine_idle = machine["idle"]
 
         n_idle_jobs = self.full_idle_jobs[core] \
             if core in self.full_idle_jobs else 0
@@ -567,11 +595,6 @@ which does not have HTCondor service.
 
         machines = {x: y for x, y in self.condor_wns_exist.items()
                     if x.startswith(self.prefix_core[core])}
-        if test:
-            test_machines = {x: y for x, y in self.condor_wns_exist.items()
-                             if x.startswith(self.test_prefix_core[core])}
-        else:
-            test_machines = {}
 
         unclaimed = {x: y for x, y in machines.items() if y == "Unclaimed"}
         test_unclaimed = {x: y for x, y in test_machines.items()
@@ -580,24 +603,24 @@ which does not have HTCondor service.
 
         n_unclaimed = len(unclaimed)
         for wn in self.wn_starting:
-            if wn.startswith(self.prefix_core[core]):
+            if wn.get_name().startswith(self.prefix_core[core]):
                 n_machines += 1
                 n_unclaimed += 1
         n_unclaimed -= n_primary_idle_jobs
-        if n_unclaimed < 0:
-            n_unclaimed = 0
 
         if test:
+            if n_unclaimed < 0:
+                n_unclaimed = 0
             n_unclaimed += len(test_unclaimed)
             for wn in self.wn_starting:
-                if wn.startswith(self.test_prefix_core[core]):
+                if wn.get_name().startswith(self.test_prefix_core[core]):
                     n_unclaimed += 1
             n_unclaimed -= n_test_idle_jobs
         else:
             if n_machines >= machine["max"]:
                 return False
 
-        if n_unclaimed >= 0:
+        if n_unclaimed - machine_idle >= 0:
             return False
 
         return True
@@ -618,15 +641,16 @@ which does not have HTCondor service.
             if not prefixcheck:
                 continue
 
-            if instance in self.wn_starting:
+            if instance in [x.get_names() for x in self.wn_starting]:
                 continue
 
-            self.wn_starting.append(instance)
+            machine = Machine(name=instance, core=core, start_time=time.time())
+            self.wn_starting.append(machine)
             try:
                 self.get_gce().start_instance(instance, n_wait=self.n_wait,
                                               update=False)
             except HttpError as e:
-                self.wn_starting.remove(instance)
+                self.wn_starting.remove(machine)
                 self.logger.warning(e)
                 return False
             return True
@@ -693,16 +717,20 @@ which does not have HTCondor service.
                            "max", "idle", "ssd"]:
                 option[opt] = machine[opt]
 
+        m = Machine(name=instance_name, core=machine["core"],
+                    mem=machine["mem"], disk=machine["disk"],
+                    start_time=time.time(),
+                    test=(wn_type == "wn_test"))
         if wn_type is not None:
-            self.wn_starting.append(instance_name)
+            self.wn_starting.append(m)
         try:
             return self.get_gce().create_instance(instance=instance_name,
                                                   option=option,
                                                   n_wait=n_wait,
                                                   update=update)
         except HttpError as e:
-            if instance_name in self.wn_starting:
-                self.wn_starting.remove(instance_name)
+            if m in self.wn_starting:
+                self.wn_starting.remove(m)
             if e.resp.status == 409:
                 self.logger.warning(e)
                 return False
@@ -768,8 +796,10 @@ which does not have HTCondor service.
         self.logger.debug("instances:\n" + pformat(list(self.instances_gce)))
         self.logger.debug("condor_wns:\n" + pformat(self.condor_wns))
         self.logger.debug("wns:\n" + pformat(self.wns))
-        self.logger.debug("wn_starting:\n" + pformat(self.wn_starting))
-        self.logger.debug("wn_deleting:\n" + pformat(self.wn_deleting))
+        self.logger.debug("wn_starting:\n"
+                          + pformat([x.get_name() for x in self.wn_starting]))
+        self.logger.debug("wn_deleting:\n"
+                          + pformat([x.get_name() for x in self.wn_deleting]))
 
     def run(self, oneshot=False):
         self.logger.info("Starting")
