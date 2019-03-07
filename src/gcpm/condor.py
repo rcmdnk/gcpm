@@ -62,7 +62,7 @@ class Condor(object):
 
     def wn_status(self):
         if self.test:
-            return {"gcp-test-wn-1core-0001": "Claimed"}
+            return 0, {"gcp-test-wn-1core-0001": "Claimed"}
         ret, status, err = self.status(["-autoformat", "Name", "State"])
         if ret != 0:
             return ret, {}
