@@ -33,7 +33,7 @@ class Condor(object):
 
     def wn(self):
         if self.test:
-            return ["gcp-test-wn-1core-0001"]
+            return ["gcp-test-wn-1core-000001"]
         ret, wn_candidates, err = self.status(
             ["-autoformat", "Name"])
         if ret != 0:
@@ -50,7 +50,7 @@ class Condor(object):
 
     def wn_exist(self, wn_name):
         if self.test:
-            if wn_name == "gcp-test-wn-1core-0001":
+            if wn_name == "gcp-test-wn-1core-000001":
                 return True
             else:
                 return False
@@ -62,7 +62,7 @@ class Condor(object):
 
     def wn_status(self):
         if self.test:
-            return 0, {"gcp-test-wn-1core-0001": "Claimed"}
+            return 0, {"gcp-test-wn-1core-000001": "Claimed"}
         ret, status, err = self.status(["-autoformat", "Name", "State"])
         if ret != 0:
             return ret, {}

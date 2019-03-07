@@ -52,7 +52,7 @@ def test_run(default_gcpm):
                 "--test", "True", "--oneshot", "True"]
     cli()
     sys.argv = __ORIG_ARGV__
-    assert default_gcpm.get_gce().delete_instance("gcp-test-wn-1core-0002")
+    assert default_gcpm.get_gce().delete_instance("gcp-test-wn-1core-000002")
 
 
 @pytest.mark.skip
@@ -60,7 +60,7 @@ def test_service(default_gcpm):
     sys.argv = ["gcpm", "service", "--test", "True", "--oneshot", "True"]
     cli()
     sys.argv = __ORIG_ARGV__
-    assert default_gcpm.get_gce().delete_instance("gcp-test-wn-1core-0002")
+    assert default_gcpm.get_gce().delete_instance("gcp-test-wn-1core-000002")
 
 
 def test_set_pool_password(default_gcpm):
