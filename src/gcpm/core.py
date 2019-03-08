@@ -493,9 +493,10 @@ which does not have HTCondor service.
                 self.wn_starting.remove(wn)
             if wn.get_running_time() > self.data["clean_time"]:
                 self.logger.warning(
-                    "%s is in starting status for more than 10 min, "
+                    "%s is in starting status for more than %d sec, "
                     "maybe problems happened, "
-                    "remove it from starting list." % wn.get_name()
+                    "remove it from starting list." % (wn.get_name(),
+                                                       self.data["clean_time"])
                 )
                 self.wn_starting.remove(wn)
 
@@ -522,9 +523,10 @@ which does not have HTCondor service.
                 self.wn_deleting.remove(wn)
             if wn.get_running_time() > self.data["clean_time"]:
                 self.logger.warning(
-                    "%s is in deleting status for more than 10 min, "
+                    "%s is in deleting status for more than %s sec, "
                     "maybe problems happened, "
-                    "remove it from starting list." % wn.get_name()
+                    "remove it from deleting list." % (wn.get_name(),
+                                                       self.data["clean_time"])
                 )
                 self.wn_starting.remove(wn)
 
