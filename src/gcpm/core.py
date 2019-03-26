@@ -753,6 +753,7 @@ which does not have HTCondor service.
                 wn_type = "wn"
 
             if self.start_terminated(machine["core"], prefixes):
+                self.total_core_use += machine["core"]
                 created = True
                 continue
 
@@ -767,6 +768,7 @@ which does not have HTCondor service.
 
                 self.new_instance(instance_name, machine, n_wait=self.n_wait,
                                   wn_type=wn_type)
+                self.total_core_use += machine["core"]
                 created = True
                 break
 
