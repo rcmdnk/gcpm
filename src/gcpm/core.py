@@ -697,6 +697,10 @@ which does not have HTCondor service.
                 ]
             }
             option["scheduling"] = {
+                "onHostMaintenance": "terminate" \
+                if "gpu" in machine or"guestAccelerators" in machine \
+                else "migrate",
+                "automaticRestart": not bool(self.data["preemptible"]),
                 "preemptible": bool(self.data["preemptible"])
             }
         if "ssd" in machine:
