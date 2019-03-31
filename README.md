@@ -1,6 +1,6 @@
 # Google Cloud Platform Condor Pool Manager (GCPM)
 
-[![Build Status](https://travis-ci.org/mickaneda/gcpm.svg?branch=master)](https://travis-ci.org/mickaneda/gcpm) ([Coverage report](https://mickaneda.github.io/gcpm/))
+[![Build Status](https://travis-ci.org/mickaneda/gcpm.svg?branch=master)](https://travis-ci.org/mickaneda/gcpm) ([Coverage report](https://mickaneda.github.io/gcpm/), [Bandit report](https://mickaneda.github.io/gcpm/bandit.html))
 
 HTCondor pool manager for Google Cloud Platform.
 
@@ -36,7 +36,12 @@ To change the configuration file, use `--config` option:
 
 ### Configuration file content
 
-A configuration file is YAML format.
+
+<details>
+  <summary>
+    A configuration file is YAML format.
+  </summary>
+  <div>
 
 Name|Description|Default Value|Mandatory|
 :---|:----------|:------------|:--------|
@@ -122,6 +127,11 @@ then 16 cores are used.
 
 Even if there are a log of idle **condor_primary**'s jobs,
 1 core test jobs by other accounts can run: 4 jobs at most.
+
+  </div>
+</details>
+
+
 
 ## Puppet setup
 
