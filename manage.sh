@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-commands=(test debug version pypi testpypi)
+commands=(test debug bandit version pypi testpypi)
 usage="Usage: $0 <command>
   commands: ${commands[*]}"
 
@@ -13,8 +13,9 @@ version_update () {
 }
 
 case $1 in
-  test)poetry run pytest -v --cov=./src --cov-report=html;;
-  debug)poetry run pytest -o log_cli=true --log-cli-level=DEBUG -v -s --cov=./src --cov-report=html;;
+  test)poetry run pytest -v --cov=./src --cov-report=html:report;;
+  debug)poetry run pytest -o log_cli=true --log-cli-level=DEBUG -v -s --cov=./src --cov-report=html:report;;
+  bandit)mkdir -p report/;poetry run bandit -r ./src/gcpm -f html > report/bandit.html;;
   version)version_update;;
   pypi)version_update; poetry publish --build;;
   testpypi)version_update; poetry publish -r testpypi --build;;
