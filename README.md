@@ -72,6 +72,8 @@ primary_accounts |User accounts which jobs must run normal worker nodes. See bel
 prefix       | Prefix of machine names.|**gcp-wn**|No
 preemptible  | 1 for preemptible machines, 0 for not.|0|No
 off_timer    | Second to send condor_off after starting.|0|No
+startup_cmd  | Additional commands at WN startup.|""|No
+shutdown_cmd | Additional commands at WN shutdown.|""|No
 network_tag  | Array of GCP network tag.|[]|No
 reuse        | 1 to reused terminated instance. Otherwise delete and re-created instances.|0|No
 interval     | Second of interval for each loop.|10|No

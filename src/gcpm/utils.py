@@ -38,7 +38,7 @@ echo /swapfile swap swap defaults 0 0 >>/etc/fstab
 
 def make_startup_script(core, mem, swap, disk, image, preemptible, admin,
                         head, port, domain, owner, bucket, off_timer=0,
-                        wn_type=""):
+                        wn_type="", startup_cmd=""):
     if wn_type == "test_wn":
         start = "IsPrimaryJob =!= True"
     else:
@@ -49,6 +49,8 @@ echo "{{\\"date\\": $(date +%s), \\"core\\": {core}, \\"mem\\": {mem}, \
 \\"preemptible\\": {preemptible} \
 }}" >/var/log/nodeinfo.log
 date +%s > /root/start_date
+
+{startup_cmd}
 
 dd if=/dev/zero of=/swapfile bs=1M count={swap}
 chmod 600 /swapfile
@@ -86,7 +88,8 @@ date >> /root/condor_started""".format(core=core, mem=mem, swap=swap,
                                        disk=disk, image=image,
                                        preemptible=preemptible, admin=admin,
                                        head=head, port=port, domain=domain,
-                                       owner=owner, bucket=bucket, start=start)
+                                       owner=owner, bucket=bucket, start=start,
+                                       startup_cmd=startup_cmd)
 
     if off_timer != 0:
         content += """
@@ -96,9 +99,13 @@ date >> /root/condor_off""".format(off_timer=off_timer)
     return content
 
 
-def make_shutdown_script(core, mem, swap, disk, image, preemptible):
+def make_shutdown_script(core, mem, swap, disk, image, preemptible,
+                         shutdown_cmd):
     content = """#!/usr/bin/env bash
 unset http_proxy
+
+${shutdown_cmd}
+
 preempted=$(\
 curl "http://metadata.google.internal/computeMetadata/v1/instance/preempted" \
 -H "Metadata-Flavor: Google")
@@ -111,5 +118,6 @@ echo "{{\\"date\\": $(date +%s), \\"core\\": {core}, \\"mem\\": {mem}, \
 \\"uptime\\": $(cut -d "." -f1 /proc/uptime) \
 }}" >>/var/log/shutdown.log""".format(core=core, mem=mem, swap=swap,
                                       disk=disk, image=image,
-                                      preemptible=preemptible)
+                                      preemptible=preemptible,
+                                      shutdown_cmd=shutdown_cmd)
     return content

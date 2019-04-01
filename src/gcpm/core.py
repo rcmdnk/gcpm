@@ -61,6 +61,8 @@ class Gcpm(object):
             "instance_max_num": 999999,
             "preemptible": 0,
             "off_timer": 0,
+            "starup_cmd": "",
+            "shutdown_cmd": "",
             "network_tag": [],
             "reuse": 0,
             "interval": 10,
@@ -271,7 +273,8 @@ which does not have HTCondor service.
                         owner=self.data["owner"],
                         bucket=self.data["bucket"],
                         off_timer=self.data["off_timer"],
-                        wn_type=wn_type
+                        wn_type=wn_type,
+                        starup_cmd=self.data["starup_cmd"],
                     )
                 self.scripts[wn_type]["shutdown"][machine["core"]] \
                     = make_shutdown_script(
@@ -281,6 +284,7 @@ which does not have HTCondor service.
                         disk=machine["disk"],
                         image=machine["image"],
                         preemptible=self.data["preemptible"],
+                        shutdown_cmd=self.data["shutdown_cmd"],
                     )
 
     def after_update_config(self):
