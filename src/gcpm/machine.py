@@ -30,7 +30,7 @@ class Machine(object):
         return self.disk
 
     def get_running_time(self):
-        return self.start_time - time.time()
+        return time.time() - self.start_time
 
     def is_test(self):
         return self.test

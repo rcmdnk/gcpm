@@ -5,7 +5,7 @@
 """
 
 
-from .utils import proc
+import htcondor
 
 
 class Condor(object):
@@ -13,32 +13,32 @@ class Condor(object):
     def __init__(self, test=False):
         self.test = test
 
-    def q(self, opt=[]):
-        return proc(["condor_q"] + opt)
-
-    def status(self, opt=[]):
-        if self.test:
-            return (0, "", "")
-        return proc(["condor_status"] + opt)
-
-    def config_val(self, opt=[]):
+    def get_param(self, param):
         if self.test:
             return (-1, "", "")
-        return proc(["condor_config_val"] + opt)
+        return htcondor.param.get(param)
 
-    def reconfig(self, opt=[]):
+    def update_collector_wn_list(self, wn_list):
+        for coll_ad in htcondor.Collector().locateAll(
+                htcondor.DaemonTypes.Collector):
+            htcondor.send_command(coll_ad, htcondor.DaemonCommands.Reconfig)
+            param = htcondor.RemoteParam(coll_ad)
+            param.update('WNS', wn_list)
+
+    def reconfig_collector(self, opt=[]):
         if self.test:
             return (-1, "", "")
-        return proc(["condor_reconfig"] + opt)
+        for coll_ad in htcondor.Collector().locateAll(
+                htcondor.DaemonTypes.Collector):
+            htcondor.send_command(coll_ad, htcondor.DaemonCommands.Reconfig)
 
-    def wn(self):
+    def wns(self):
         if self.test:
             return ["gcp-test-wn-1core-000001"]
-        ret, wn_candidates, err = self.status(
-            ["-autoformat", "Name"])
-        if ret != 0:
-            return ret, []
-        wn_candidates = [x.split(".")[0] for x in wn_candidates.split()]
+        wns = htcondor.Collector().query(
+            htcondor.AdTypes.Startd,
+            projection=['Name'])
+        wn_candidates = [x.get('Name').split(".")[0] for x in wns.split()]
         wn_candidates2 = []
         for wn in wn_candidates:
             if "@" in wn:
@@ -46,50 +46,50 @@ class Condor(object):
             else:
                 wn_candidates2.append(wn)
         wn_list = list(set(wn_candidates2))
-        return ret, wn_list
+        return wn_list
 
     def wn_exist(self, wn_name):
         if self.test:
             if wn_name == "gcp-test-wn-1core-000001":
                 return True
-            else:
-                return False
-
-        if wn_name in self.wn():
-            return True
-        else:
             return False
+
+        if wn_name in self.wns():
+            return True
+        return False
 
     def wn_status(self):
         if self.test:
             return 0, {"gcp-test-wn-1core-000001": "Claimed"}
-        ret, status, err = self.status(["-autoformat", "Name", "State"])
-        if ret != 0:
-            return ret, {}
+        wns = htcondor.Collector().query(
+            htcondor.AdTypes.Startd,
+            projection=['Name', 'State'])
         status_dict = {}
-        for line in status.splitlines():
-            name, status = line.split()
+        for wn in wns:
+            name = wn.get('Name')
+            status = wn.get('State')
             name = name.split(".")[0]
             if "@" in name:
                 name = name.split("@")[1]
             status_dict[name] = status
-        return ret, status_dict
+        return status_dict
 
     def idle_jobs(self, owners=[], exclude_owners=[]):
         if self.test:
             return [{1: 1}, {}]
-        qinfo = self.q(["-allusers", "-global", "-autoformat", "JobStatus",
-                        "RequestCpus", "RequestMemory", "Owner"])[1]
+        qinfo = []
+        for schedd_ad in \
+                htcondor.Collector().locateAll(htcondor.DaemonTypes.Schedd):
+            schedd = htcondor.Schedd(schedd_ad)
+            qinfo += schedd.xquery(
+                projection=['RequestCpus', 'Owner'],
+                requirements='JobStatus=1')
+
         full_idle_jobs = {}
         selected_idle_jobs = {}
-        if qinfo == "All queues are empty\n":
-            return [full_idle_jobs, selected_idle_jobs]
-        for line in qinfo.splitlines():
-            status, core, memory, owner = line.split()
-            status = int(status)
-            core = int(core)
-            if status != 1:
-                continue
+        for q in qinfo:
+            core = int(q.get('RequestCpus'))
+            owner = q.get('Owner')
             if core not in full_idle_jobs:
                 full_idle_jobs[core] = 0
             full_idle_jobs[core] += 1

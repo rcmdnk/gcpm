@@ -22,7 +22,7 @@ def make_file(filename, content="", mkdir=True):
         else:
             return False
     with open(filename, mode='w') as f:
-            f.write(content)
+        f.write(content)
     return True
 
 

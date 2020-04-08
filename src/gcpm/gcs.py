@@ -40,7 +40,7 @@ class Gcs(object):
         return [x["name"] for x in buckets["items"]]
 
     def is_bucket(self, bucket):
-        return True if bucket in self.get_buckets() else False
+        return bucket in self.get_buckets()
 
     def delete_bucket(self):
         if not self.is_bucket(self.bucket):
@@ -64,7 +64,7 @@ class Gcs(object):
         return [x["name"] for x in files["items"]]
 
     def is_file(self, filename):
-        return True if filename in self.get_files() else False
+        return filename in self.get_files()
 
     def upload_file(self, path, filename="", is_warn_exist=False):
         self.create_bucket()

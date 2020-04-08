@@ -19,12 +19,15 @@ class CliObject(object):
         self.oneshot = oneshot
 
     def help(self):
+        """Show help."""
         Gcpm.help()
 
     def version(self):
+        """Show version."""
         Gcpm.version()
 
     def show_config(self):
+        """Show configurations."""
         Gcpm(config=self.config).show_config()
 
     def install(self):
@@ -50,6 +53,7 @@ class CliObject(object):
 
 
 def cli():
+    """Main command line tool function."""
     if len(sys.argv) <= 1 or sys.argv[1] in ["-h", "--help"]:
         Gcpm.help()
     else:

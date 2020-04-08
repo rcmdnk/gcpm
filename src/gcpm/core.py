@@ -30,8 +30,6 @@ from .machine import Machine
 class Gcpm(object):
     """HTCondor pool manager for Google Cloud Platform."""
 
-    _HTCONDOR_STATUS_FAILED = "Failed to get HTCondor status"
-
     def __init__(self, config="", service=False, test=False):
         self.first_update_config = 0
         self.logger = None
@@ -139,9 +137,6 @@ which does not have HTCondor service.
     @staticmethod
     def version():
         print("%s: %s" % (__program__, __version__))
-
-    def check_config(self):
-        return True
 
     def read_config(self):
         yaml = ruamel.yaml.YAML()
@@ -295,7 +290,6 @@ which does not have HTCondor service.
     def update_config(self):
         orig_data = copy.deepcopy(self.data)
         self.read_config()
-        self.check_config()
         if self.first_update_config != 0 and orig_data == self.data:
             return
         self.first_update_config = 1
@@ -333,16 +327,11 @@ which does not have HTCondor service.
 
     def set_pool_password(self, path="", is_warn_exist=False):
         if path == "":
-            (ret, out, err) = self.condor.config_val(["SEC_PASSWORD_FILE"])
-            if ret != 0:
+            path = self.condor.get_param('SEC_PASSWORD_FILE')
+            if path is None:
                 return
-            path = out.strip()
         self.get_gcs().upload_file(path=path, filename="pool_password",
                                    is_warn_exist=is_warn_exist)
-
-    def check_condor_status(self):
-        if self.condor.status()[0] != 0:
-            raise RuntimeError(self._HTCONDOR_STATUS_FAILED)
 
     def check_required(self):
         for machine in self.data["required_machines"]:
@@ -383,8 +372,8 @@ which does not have HTCondor service.
         instances = {}
         for instance, info in self.instances_gce.items():
             is_use = 0
-            for core, prefix in list(self.prefix_core.items()) \
-                    + list(self.test_prefix_core.items()):
+            for prefix in list(self.prefix_core.values()) \
+                    + list(self.test_prefix_core.values()):
                 if instance.startswith(prefix):
                     is_use = 1
                     break
@@ -418,8 +407,8 @@ which does not have HTCondor service.
         return ip
 
     def add_gce_wns(self, update=True):
-        for instance, info in \
-                self.get_instances_running(update=update).items():
+        for instance in \
+                self.get_instances_running(update=update):
             self.wns[instance] = self.get_gce_ip(instance, update=False)
 
     def add_remaining_wns(self):
@@ -455,7 +444,7 @@ which does not have HTCondor service.
         self.add_remaining_wns()
 
         self.wn_list = ""
-        for name, ip in self.wns.items():
+        for ip in self.wns.values():
             self.wn_list += \
                 " condor@$(UID_DOMAIN)/%s condor_pool@$(UID_DOMAIN)/%s" \
                 % (ip, ip)
@@ -464,9 +453,8 @@ which does not have HTCondor service.
 
     def update_condor_collector(self):
         self.make_wn_list()
-        self.condor.config_val(["-collector", "-set",
-                                "WNS = %s" % self.wn_list])
-        self.condor.reconfig(["-collector"])
+        self.condor.update_collector_wn_list(self.wn_list)
+        self.condor.reconfig_collector()
 
     def stop_instance(self, instance):
         machine = Machine(name=instance, start_time=time.time())
@@ -537,8 +525,8 @@ which does not have HTCondor service.
     def check_terminated(self):
         if self.data["reuse"] == 1:
             return
-        for instance, info in self.get_instances_terminated(
-                update=False).items():
+        for instance in self.get_instances_terminated(
+                update=False):
             if instance in \
                     self.get_starting_deleting_names():
                 continue
@@ -569,9 +557,7 @@ which does not have HTCondor service.
 
     def update_wns(self):
         self.get_instances_wns(update=False)
-        ret, self.condor_wns = self.condor.wn_status()
-        if ret != 0:
-            raise RuntimeError(self._HTCONDOR_STATUS_FAILED)
+        self.condor_wns = self.condor.wn_status()
         self.update_condor_collector()
         self.clean_wns()
         self.check_wns()
@@ -701,8 +687,9 @@ which does not have HTCondor service.
                 ]
             }
             option["scheduling"] = {
-                "onHostMaintenance": "terminate" \
-                if "gpu" in machine or"guestAccelerators" in machine \
+                "onHostMaintenance":
+                "terminate" if ("gpu" in machine
+                                or "guestAccelerators" in machine)
                 else "migrate",
                 "automaticRestart": not bool(self.data["preemptible"]),
                 "preemptible": bool(self.data["preemptible"])
@@ -719,7 +706,7 @@ which does not have HTCondor service.
                     "interface":  s,
                     "initializeParams": {
                         "diskType": "zones/%s/diskTypes/local-ssd"
-                        % self.data["zone"]
+                                    % self.data["zone"]
                     }
                 })
         for opt in machine:
@@ -799,7 +786,6 @@ which does not have HTCondor service.
 
     def series(self):
         self.logger.debug("series start")
-        self.check_condor_status()
         self.update_config()
         self.get_instances_gce(update=True)
         self.check_required()
@@ -809,9 +795,11 @@ which does not have HTCondor service.
         self.logger.debug("condor_wns:\n" + pformat(self.condor_wns))
         self.logger.debug("wns:\n" + pformat(self.wns))
         self.logger.debug("wn_starting:\n"
-                          + pformat([x.get_name() for x in self.wn_starting]))
+                          + pformat([[x.get_name(), x.get_running_time()]
+                                     for x in self.wn_starting]))
         self.logger.debug("wn_deleting:\n"
-                          + pformat([x.get_name() for x in self.wn_deleting]))
+                          + pformat([[x.get_name(), x.get_running_time()]
+                                     for x in self.wn_deleting]))
 
     def run(self, oneshot=False):
         self.logger.info("Starting")
@@ -824,14 +812,10 @@ which does not have HTCondor service.
                 sleep(self.data["interval"])
             except KeyboardInterrupt:
                 break
-            except RuntimeError as e:
-                if e.message == self._HTCONDOR_STATUS_FAILED:
-                    self.logger.warning(self._HTCONDOR_STATUS_FAILED)
-                    sleep(self.data["interval"])
-                else:
-                    import traceback
-                    self.logger.error(traceback.format_exc())
-                    sys.exit(1)
+            except RuntimeError:
+                import traceback
+                self.logger.error(traceback.format_exc())
+                sys.exit(1)
             except Exception:
                 import traceback
                 self.logger.error(traceback.format_exc())
