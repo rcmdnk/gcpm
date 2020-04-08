@@ -1,6 +1,6 @@
 # Google Cloud Platform Condor Pool Manager (GCPM)
 
-[![Build Status](https://travis-ci.org/mickaneda/gcpm.svg?branch=master)](https://travis-ci.org/mickaneda/gcpm) ([Coverage report](https://mickaneda.github.io/gcpm/), [Bandit report](https://mickaneda.github.io/gcpm/bandit.html))
+[![Build Status](https://travis-ci.org/rcmdnk/gcpm.svg?branch=master)](https://travis-ci.org/rcmdnk/gcpm) ([Coverage report](https://rcmdnk.github.io/gcpm/), [Bandit report](https://rcmdnk.github.io/gcpm/bandit.html))
 
 HTCondor pool manager for Google Cloud Platform.
 
@@ -137,14 +137,14 @@ Even if there are a log of idle **condor_primary**'s jobs,
 
 ## Puppet setup
 
-* [mickaneda/puppet-gcpm](https://github.com/mickaneda/puppet-gcpm)
+* [rcmdnk/puppet-gcpm](https://github.com/rcmdnk/puppet-gcpm)
 
 A puppet module for GCPM.
 
-* [mickaneda/gcpm-puppet](https://github.com/mickaneda/gcpm-puppet)
+* [rcmdnk/gcpm-puppet](https://github.com/rcmdnk/gcpm-puppet)
 
 A puppet example to create head (manager) node and worker node with puppet.
 
-* [mickaneda/frontiersquid-puppet](https://github.com/mickaneda/frontiersquid-puppet)
+* [rcmdnk/frontiersquid-puppet](https://github.com/rcmdnk/frontiersquid-puppet)
 
 A puppet example to create frontier squid proxy server in GCP.
