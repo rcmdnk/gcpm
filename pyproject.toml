@@ -16,7 +16,7 @@ google-api-python-client = "^1.7"
 google-auth-httplib2 = "^0.1.0"
 google-auth = "^1.6"
 oauth2client = "^4.1"
-"ruamel.yaml" = "^0.15.83"
+"ruamel.yaml" = "^0.17.0"
 bandit = "^1.5"
 htcondor = "^8.9"
 
