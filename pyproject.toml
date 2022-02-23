@@ -22,7 +22,7 @@ htcondor = "^9.4"
 
 [tool.poetry.dev-dependencies]
 pytest = "^4.0"
-pytest-cov = "^2.6"
+pytest-cov = "^3.0"
 
 [tool.poetry.scripts]
 gcpm = "gcpm:main"
