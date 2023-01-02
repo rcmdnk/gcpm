@@ -18,7 +18,7 @@ google-auth = "^2.3"
 oauth2client = "^4.1"
 "ruamel.yaml" = "^0.17.0"
 bandit = "^1.5"
-htcondor = "^9.4"
+htcondor = "^10.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^7.0"
