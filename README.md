@@ -1,7 +1,5 @@
 # Google Cloud Platform Condor Pool Manager (GCPM)
 
-[![Build Status](https://travis-ci.org/rcmdnk/gcpm.svg?branch=master)](https://travis-ci.org/rcmdnk/gcpm) ([Coverage report](https://rcmdnk.github.io/gcpm/), [Bandit report](https://rcmdnk.github.io/gcpm/bandit.html))
-
 HTCondor pool manager for Google Cloud Platform.
 
 ## Installation
